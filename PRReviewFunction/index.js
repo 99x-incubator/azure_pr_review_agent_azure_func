@@ -38,7 +38,7 @@ require('dotenv/config');
  * @param {Object} req - HTTP request
  */
 module.exports = async function (context, req) {
-    context.log('PR Review Function triggered by webhook');
+    context.log('PR Review Function triggered by webhook');   
     
     try {
         // Validate webhook payload
@@ -48,10 +48,7 @@ module.exports = async function (context, req) {
                 body: "Invalid webhook payload: Body is empty"
             };
             return;
-        }
-
-        // Log the received payload for debugging
-        context.log('Received webhook payload:', JSON.stringify(req.body));
+        }        
 
         // Check if this is a pull request event
         const eventType = req.body.eventType;
@@ -61,7 +58,7 @@ module.exports = async function (context, req) {
                 status: 400,
                 body: "Missing eventType in payload"
             };
-            return;
+            return; 
         }
 
         if (!eventType.startsWith('git.pullrequest.')) {
@@ -121,18 +118,11 @@ module.exports = async function (context, req) {
             AZURE_OPENAI_API_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_API_DEPLOYMENT_NAME,
             AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || "2023-12-01-preview",
             INSTRUCTION_SOURCE: process.env.INSTRUCTION_SOURCE,
+            MODEL_TYPE: process.env.MODEL_TYPE,
             CREATE_NEW_PR: process.env.CREATE_NEW_PR ? 
                 process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false
         };
 
-        // Log configuration (excluding sensitive values)
-        context.log('Configuration:', {
-            PROJECT: config.PROJECT,
-            REPO_NAME: config.REPO_NAME,
-            PR_ID: config.PR_ID,
-            INSTRUCTION_SOURCE: config.INSTRUCTION_SOURCE,
-            CREATE_NEW_PR: config.CREATE_NEW_PR
-        });
 
         // Validate required configuration
         const requiredVars = ['AZURE_PAT', 'INSTRUCTION_SOURCE'];
@@ -153,24 +143,7 @@ module.exports = async function (context, req) {
             };
             return;
         }
-
-        // For testing purposes, if this is a test run without actual processing
-        if (req.query && req.query.testOnly === 'true') {
-            context.log('Test run completed successfully');
-            context.res = {
-                status: 200,
-                body: {
-                    message: "Test run completed successfully",
-                    config: {
-                        PROJECT: config.PROJECT,
-                        REPO_NAME: config.REPO_NAME,
-                        PR_ID: config.PR_ID,
-                        CREATE_NEW_PR: config.CREATE_NEW_PR
-                    }
-                }
-            };
-            return;
-        }
+        
 
         // Load review guidelines
         let guidelines;
@@ -188,12 +161,8 @@ module.exports = async function (context, req) {
         }
         
         // Process the PR
-        await processPullRequest(context, config, guidelines);
+        const result = await processPullRequest(context, config, guidelines);        
         
-        context.res = {
-            status: 200,
-            body: "PR review completed successfully"
-        };
     } catch (error) {
         const errorMsg = `PR review failed: ${error.message || error}`;
         context.log.error(errorMsg);
@@ -211,30 +180,75 @@ module.exports = async function (context, req) {
  * @returns {Object} - Initialized AI model
  */
 function initializeAIModel(config) {
-    if (config.AZURE_OPENAI_API_KEY) {
-        return new AzureChatOpenAI({
-            azureOpenAIApiKey: config.AZURE_OPENAI_API_KEY,
-            azureOpenAIApiInstanceName: config.AZURE_OPENAI_API_INSTANCE_NAME,
-            azureOpenAIApiDeploymentName: config.AZURE_OPENAI_API_DEPLOYMENT_NAME,
-            azureOpenAIApiVersion: config.AZURE_OPENAI_API_VERSION,
-            modelName: "gpt-4",
-            temperature: 0.7,
-            maxTokens: 4096,
-        });
-    } else if (config.OPENAI_API_KEY) {
-        return new ChatOpenAI({
-            openAIApiKey: config.OPENAI_API_KEY,
-            modelName: "gpt-4",
-            temperature: 0.7,
-            maxTokens: 4096,
-        });
-    } else if (config.GEMINI_API_KEY) {
-        return new ChatGoogleGenerativeAI({
-            modelName: "gemini-1.5-pro",
-            apiKey: config.GEMINI_API_KEY
-        });
-    } else {
-        throw new Error("No AI model API key provided");
+    const modelType = config.MODEL_TYPE.toLowerCase();
+    
+    switch (modelType) {
+        case 'azure':
+            if (!config.AZURE_OPENAI_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'azure' but AZURE_OPENAI_API_KEY is missing");
+            }
+            return new AzureChatOpenAI({
+                azureOpenAIApiKey: config.AZURE_OPENAI_API_KEY,
+                azureOpenAIApiInstanceName: config.AZURE_OPENAI_API_INSTANCE_NAME,
+                azureOpenAIApiDeploymentName: config.AZURE_OPENAI_API_DEPLOYMENT_NAME,
+                azureOpenAIApiVersion: config.AZURE_OPENAI_API_VERSION,
+                modelName: "gpt-4",
+                temperature: 0.7,
+                maxTokens: 4096,
+            });
+
+        case 'openai':
+            if (!config.OPENAI_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'openai' but OPENAI_API_KEY is missing");
+            }
+            return new ChatOpenAI({
+                openAIApiKey: config.OPENAI_API_KEY,
+                modelName: "gpt-4",
+                temperature: 0.7,
+                maxTokens: 4096,
+            });
+
+        case 'gemini':
+            if (!config.GEMINI_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'gemini' but GEMINI_API_KEY is missing");
+            }
+            return new ChatGoogleGenerativeAI({
+                modelName: "gemini-1.5-pro",
+                apiKey: config.GEMINI_API_KEY
+            });       
+
+        default:
+            throw new Error(`Invalid MODEL_TYPE: ${config.MODEL_TYPE}. Valid values: azure, openai, gemini, auto`);
+    }
+}
+
+/**
+ * Check if AI comments already exist for this PR
+ * @param {Object} gitApi - Git API client
+ * @param {string} repoId - Repository ID
+ * @param {number} prId - PR ID
+ * @param {string} project - Project name
+ * @returns {Promise<boolean>} - Whether AI comments already exist
+ */
+async function hasExistingAIComments(gitApi, repoId, prId, project) {
+    try {
+        // Get all threads for the PR
+        const threads = await gitApi.getThreads(repoId, prId, project);
+        
+        // Check if any thread contains an AI comment
+        for (const thread of threads) {
+            for (const comment of thread.comments || []) {
+                if (comment.content && comment.content.includes('[AI Review]')) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('Error checking for existing AI comments:', error);
+        // If we can't check, assume no comments to be safe
+        return false;
     }
 }
 
@@ -243,6 +257,7 @@ function initializeAIModel(config) {
  * @param {Object} context - Azure Function context
  * @param {Object} config - Configuration object
  * @param {string} guidelines - Review guidelines
+ * @returns {Promise<Object>} - Processing result
  */
 async function processPullRequest(context, config, guidelines) {
     // Initialize AI model
@@ -252,8 +267,7 @@ async function processPullRequest(context, config, guidelines) {
     if (!model) {
         throw new Error("Failed to initialize AI model. Check API key configuration.");
     }
-    context.log("AI model initialized successfully");
-
+    
     // 1. Authenticate with Azure DevOps
     const authHandler = azdev.getPersonalAccessTokenHandler(config.PAT);
     const connection = new azdev.WebApi(`https://dev.azure.com/${config.ORG}`, authHandler);
@@ -270,11 +284,18 @@ async function processPullRequest(context, config, guidelines) {
     // Check for draft PR
     if (targetPR.isDraft) {
         context.log("Skipping draft pull request");
-        return;
+        return { message: "Skipped draft pull request" };
     }
 
     if (!targetPR?.pullRequestId || !targetPR.sourceRefName || !targetPR.targetRefName) {
         throw new Error("PR not found or missing ref names");
+    }
+
+    //Check if AI comments already exist for this PR
+    const hasComments = await hasExistingAIComments(gitApi, repo.id, targetPR.pullRequestId, config.PROJECT);
+    if (hasComments) {
+        context.log("AI comments already exist for this PR, skipping");
+        return { message: "AI comments already exist for this PR, skipping" };
     }
 
     // 4. Get PR changes using iterations
@@ -289,47 +310,53 @@ async function processPullRequest(context, config, guidelines) {
         config.PROJECT
     );
 
-    context.log(`Found ${prChanges.changeEntries?.length || 0} changed files in PR`);
-    for (const change of prChanges.changeEntries || []) {
-        context.log(`Change detected: ${change.item?.path}, changeType: ${change.changeType}`);
-    }
-
     // 5. Process each changed file
+    // Use Promise.all to process all files in parallel but wait for all to complete
+    const fileProcessingPromises = [];
+    
     for (const change of prChanges.changeEntries || []) {
         const itemPath = change.item?.path;
         if (!itemPath || change.item?.isFolder) continue;
 
-        // Get file content from both branches
-        const [oldContent, newContent] = await Promise.all([
-            getFileContent(gitApi, repo.id, itemPath, targetPR.targetRefName, config.PROJECT),
-            getFileContent(gitApi, repo.id, itemPath, targetPR.sourceRefName, config.PROJECT)
-        ]);
+        // Create a promise for processing this file
+        const filePromise = (async () => {
+            // Get file content from both branches
+            const [oldContent, newContent] = await Promise.all([
+                getFileContent(gitApi, repo.id, itemPath, targetPR.targetRefName, config.PROJECT),
+                getFileContent(gitApi, repo.id, itemPath, targetPR.sourceRefName, config.PROJECT)
+            ]);
 
-        // Generate AI comments
-        const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model);
+            // Generate AI comments
+            const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model);
+            
+            // Post comments to Azure DevOps
+            for (const comment of analysis.comments) {
+                await createCommentThread(
+                    gitApi,
+                    repo.id,
+                    targetPR.pullRequestId,
+                    comment.comment,
+                    itemPath,
+                    comment.lineNumber,
+                    config.PROJECT
+                );
+            }
+
+            // Update the correction collection
+            if (analysis.newContent !== newContent && validateCorrection(newContent, analysis.newContent)) {
+                corrections.push({
+                    path: itemPath,
+                    originalContent: newContent,
+                    correctedContent: analysis.newContent
+                });
+            }
+        })();
         
-        // Post comments to Azure DevOps
-        for (const comment of analysis.comments) {
-            await createCommentThread(
-                gitApi,
-                repo.id,
-                targetPR.pullRequestId,
-                comment.comment,
-                itemPath,
-                comment.lineNumber,
-                config.PROJECT
-            );
-        }
-
-        // Update the correction collection
-        if (analysis.newContent !== newContent && validateCorrection(newContent, analysis.newContent)) {
-            corrections.push({
-                path: itemPath,
-                originalContent: newContent,
-                correctedContent: analysis.newContent
-            });
-        }
+        fileProcessingPromises.push(filePromise);
     }
+    
+    // Wait for all file processing to complete
+    await Promise.all(fileProcessingPromises);
 
     // Create a new PR with corrections if enabled
     if (corrections.length > 0) {
@@ -341,12 +368,12 @@ async function processPullRequest(context, config, guidelines) {
                 corrections,
                 config.PROJECT
             );
-            context.log("Created new PR with AI-suggested changes");
+            context.log("Created new PR with AI-suggested changes");            
         } else {
-            context.log("AI-suggested changes available. To apply these changes, set CREATE_NEW_PR=true");
+            context.log("AI-suggested changes available. To apply these changes, set CREATE_NEW_PR=true");            
         }
     } else {
-        context.log("No AI-suggested changes to apply.");
+        context.log("No AI-suggested changes to apply.");        
     }
 }
 
@@ -386,23 +413,15 @@ async function loadGuidelines(source) {
  * @param {string} project - Project name
  * @returns {Promise<string>} - File content
  */
-async function getFileContent(gitApi, repoId, path, ref, project) {
-    console.log(`Retrieving content for ${path} from ${ref}`);
+async function getFileContent(gitApi, repoId, path, ref, project) { 
     try {
         const versionDescriptor = {
             versionType: GitInterfaces.GitVersionType.Branch,
             version: ref.replace("refs/heads/", "")
         };
-
-        console.log(`Using version descriptor: ${JSON.stringify(versionDescriptor)}`);
-        const stream = await gitApi.getItemContent(repoId, path, project, undefined, undefined, undefined, undefined, undefined, versionDescriptor);
-        const content = await streamToString(stream);
         
-        // Add logging to debug content retrieval
-        console.log(`Retrieved ${content.length} bytes from ${path} in ${ref}`);
-        if (content.length === 0) {
-            console.warn(`WARNING: Empty content retrieved for ${path} in ${ref}`);
-        }
+        const stream = await gitApi.getItemContent(repoId, path, project, undefined, undefined, undefined, undefined, undefined, versionDescriptor);
+        const content = await streamToString(stream);  
         return content;
     } catch (error) {
         console.error(`Error fetching ${path} from ${ref}:`, error instanceof Error ? error.message : error);
@@ -454,89 +473,9 @@ function numberLines(content) {
  * @param {Object} model - AI model
  * @returns {Promise<AICommentResult>} - AI comments and suggested content
  */
-// async function generateComments(oldContent, newContent, filePath, guidelines, model) {
-
-//     console.log(`Analyzing changes for ${filePath}`);
-//     console.log(`Old content length: ${oldContent.length}, New content length: ${newContent.length}`);
-
-//     const numberedOld = numberLines(oldContent);
-//     const numberedNew = numberLines(newContent);
-//     const newLines = splitLines(newContent);
-
-//     const prompt = PromptTemplate.fromTemplate(`
-//         Follow these code review guidelines:
-//         {guidelines}
-
-//         ANALYZE THESE CHANGES:
-//         - OLD VERSION (numbered):
-//         {numberedOld}
-
-//         - NEW VERSION (numbered):
-//         {numberedNew}
-
-//         INSTRUCTIONS:
-//         1. Only comment on changed lines
-//         2. Use EXACT line numbers from NEW VERSION
-//         3. Reference guidelines like: [Guideline X]
-//         4. Generate corrected version of the FULL FILE
-//         5. Maintain original code structure where possible
-
-//         RESPONSE FORMAT (JSON):
-//         {{
-//             "comments": [{{
-//                 "lineNumber": <ACTUAL_NEW_LINE_NUMBER>,
-//                 "comment": "[Guideline] - <TEXT>"
-//             }}],
-//             "newContent": "<FULL_CORRECTED_CODE_WITHOUT_LINE_NUMBERS>"
-//         }}
-
-//         EXAMPLE:
-//         {{
-//             "comments": [{{
-//                 "lineNumber": 42,
-//                 "comment": "[Security 3.1] - Fix SQL injection risk"
-//             }}],
-//             "newContent": "function safe() {{\\n  // fixed code\\n}}"
-//         }}
-//     `);
-
-//     try {
-//         console.log(`Sending request to AI model for ${filePath}`);
-//         const chain = prompt.pipe(model).pipe(new JsonOutputParser());
-//         const result = await chain.invoke({
-//             guidelines,
-//             numberedOld,
-//             numberedNew
-//         });
-
-//         console.log(`AI model returned ${result.comments?.length || 0} comments for ${filePath}`);
-
-//         return {
-//             comments: result.comments
-//                 .map(comment => ({
-//                     lineNumber: Math.min(
-//                         Math.max(1, Number(comment.lineNumber)),
-//                         newLines.length
-//                     ),
-//                     comment: comment.comment
-//                 }))
-//                 .filter(comment =>
-//                     comment.lineNumber > 0 &&
-//                     comment.lineNumber <= newLines.length
-//                 ),
-//             newContent: result.newContent
-//         };
-//     } catch (error) {
-//         console.error("AI analysis failed:", error);
-//         return { comments: [], newContent: newContent };
-//     }
-// }
 
 async function generateComments(oldContent, newContent, filePath, guidelines, model) {
-    // Add logging to debug inputs
-    console.log(`Analyzing changes for ${filePath}`);
-    console.log(`Old content length: ${oldContent.length}, New content length: ${newContent.length}`);
-    
+        
     // Check if contents are identical and log this important information
     if (oldContent === newContent) {
         console.log(`WARNING: Contents are identical for ${filePath}, skipping analysis`);
@@ -544,35 +483,17 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
     }
     
     // Log a sample of the differences to verify changes are meaningful
-    const oldLines = splitLines(oldContent);
-    
+    const oldLines = splitLines(oldContent);    
     const numberedOld = numberLines(oldContent);
     const numberedNew = numberLines(newContent);
     const newLines = splitLines(newContent);
 
     // Add timeout handling
     const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('AI model request timed out after 25 seconds')), 25000);
+        setTimeout(() => reject(new Error('AI model request timed out after 240 seconds')), 240000);
     });
 
-    console.log(`Old file has ${oldLines.length} lines, new file has ${newLines.length} lines`);
-
-        // Find and log a few differences to help debug
-        let diffFound = false;
-        for (let i = 0; i < Math.min(oldLines.length, newLines.length); i++) {
-            if (oldLines[i] !== newLines[i]) {
-                console.log(`First difference at line ${i+1}:`);
-                console.log(`Old: ${oldLines[i]}`);
-                console.log(`New: ${newLines[i]}`);
-                diffFound = true;
-                break;
-            }
-        }
-
-        if (!diffFound && oldLines.length !== newLines.length) {
-            console.log(`Files differ in length but all common lines are identical`);
-        }
-
+    
     // Log the prompt being sent to the AI model
     const promptTemplate = PromptTemplate.fromTemplate(`
         Follow these code review guidelines:
@@ -610,18 +531,11 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             }}],
             "newContent": "function safe() {{\\n  // fixed code\\n}}"
         }}
-    `);
+    `);   
+   
     
-    console.log("Preparing to send request to AI model");
-    
-    try {
-        console.log(`Sending request to AI model for ${filePath}`);
-        const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());
-        
-        // Log the actual values being sent (truncated for readability)
-        console.log(`Guidelines length: ${guidelines.length} characters`);
-        console.log(`Old content sample: ${numberedOld.substring(0, 200)}...`);
-        console.log(`New content sample: ${numberedNew.substring(0, 200)}...`);
+    try {        
+        const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());       
         
         const result = await Promise.race([
             chain.invoke({
@@ -630,20 +544,8 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 numberedNew
             }),
             timeoutPromise
-        ]);
-        // await chain.invoke({
-        //     guidelines,
-        //     numberedOld,
-        //     numberedNew
-        // });
-        
-        console.log(`AI model returned ${result.comments?.length || 0} comments for ${filePath}`);
-        
-        // If no comments were returned, log this important information
-        if (!result.comments || result.comments.length === 0) {
-            console.log(`WARNING: AI model didn't generate any comments for ${filePath}`);
-        }
-        
+        ]);            
+                       
         return {
             comments: result.comments
                 .map(comment => ({
@@ -659,11 +561,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 ),
             newContent: result.newContent
         };
-    } catch (error) {
-        // console.error(`AI analysis failed for ${filePath}:`, error);
-        // // Log the full error details to help diagnose the issue
-        // console.error(`Error details: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-        // return { comments: [], newContent: newContent 
+    } catch (error) {        
         let errorMessage = 'AI analysis failed';
         
         // Handle specific error types
@@ -678,11 +576,8 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             console.error(`Connection refused for ${filePath}: The AI service refused the connection`);
         } else {
             console.error(`AI analysis error for ${filePath}:`, error);
-        }
-        
-        // Log detailed error information for debugging
-        console.error(`Error details: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-        
+        }       
+                
         // Return empty result but don't fail the entire function
         return { 
             comments: [], 
