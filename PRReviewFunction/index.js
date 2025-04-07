@@ -4,6 +4,10 @@ const GitApi = require('azure-devops-node-api/GitApi');
 const GitInterfaces = require('azure-devops-node-api/interfaces/GitInterfaces');
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { AzureChatOpenAI, ChatOpenAI } = require('@langchain/openai');
+// Add imports for new models
+const { ChatDeepSeek } = require('@langchain/deepseek');
+const { ChatAnthropic } = require('@langchain/anthropic');
+const { ChatGroq } = require('@langchain/groq');
 const { PromptTemplate } = require('@langchain/core/prompts');
 const { JsonOutputParser } = require('@langchain/core/output_parsers');
 const { TextLoader } = require('langchain/document_loaders/fs/text');
@@ -117,6 +121,10 @@ module.exports = async function (context, req) {
             AZURE_OPENAI_API_INSTANCE_NAME: process.env.AZURE_OPENAI_API_INSTANCE_NAME,
             AZURE_OPENAI_API_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_API_DEPLOYMENT_NAME,
             AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || "2023-12-01-preview",
+            // Add new API keys for additional models
+            DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+            GROQ_API_KEY: process.env.GROQ_API_KEY,
             INSTRUCTION_SOURCE: process.env.INSTRUCTION_SOURCE,
             MODEL_TYPE: process.env.MODEL_TYPE,
             CREATE_NEW_PR: process.env.CREATE_NEW_PR ? 
@@ -217,8 +225,46 @@ function initializeAIModel(config) {
                 apiKey: config.GEMINI_API_KEY
             });       
 
+        // DeepSeek R1 case
+        case 'deepseek':
+        case 'deepseek-r1':
+            if (!config.DEEPSEEK_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'deepseek' but DEEPSEEK_API_KEY is missing");
+            }
+            return new ChatDeepSeek({
+                deepseekApiKey: config.DEEPSEEK_API_KEY,
+                modelName: "deepseek-reasoner",
+                temperature: 0.7,
+                maxTokens: 4096,
+            });
+            
+        // Anthropic Claude case
+        case 'anthropic':
+        case 'claude':
+            if (!config.ANTHROPIC_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'anthropic' but ANTHROPIC_API_KEY is missing");
+            }
+            return new ChatAnthropic({
+                anthropicApiKey: config.ANTHROPIC_API_KEY,
+                modelName: "claude-3-5-sonnet-20240620",
+                temperature: 0.7,
+                maxTokens: 4096,
+            });
+            
+        // Groq case
+        case 'groq':
+            if (!config.GROQ_API_KEY) {
+                throw new Error("MODEL_TYPE is set to 'groq' but GROQ_API_KEY is missing");
+            }
+            return new ChatGroq({
+                apiKey: config.GROQ_API_KEY,
+                modelName: "llama3-70b-8192",
+                temperature: 0.7,
+                maxTokens: 4096,
+            });
+
         default:
-            throw new Error(`Invalid MODEL_TYPE: ${config.MODEL_TYPE}. Valid values: azure, openai, gemini, auto`);
+            throw new Error(`Invalid MODEL_TYPE: ${config.MODEL_TYPE}. Valid values: azure, openai, gemini, deepseek, anthropic, groq`);
     }
 }
 
