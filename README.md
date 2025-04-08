@@ -132,7 +132,6 @@ In the Azure Portal, navigate to your Function App > Configuration and add the f
 | Environmental Variable Name | Description |
 |-------------|-------------|
 | AZURE_PAT | Personal Access Token for Azure DevOps with Code (Read & Write) permissions |
-| AZURE_PROJECT | Default Azure DevOps project name (optional if provided in webhook) |
 | AZURE_REPO | Default repository name (optional if provided in webhook) |
 | INSTRUCTION_SOURCE | Path or URL to review guidelines file |
 | CREATE_NEW_PR | Set to "true" to create new PRs with AI suggestions |
