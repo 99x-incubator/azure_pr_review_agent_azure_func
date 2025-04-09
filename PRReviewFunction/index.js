@@ -260,9 +260,10 @@ function initializeAIModel(config) {
             }
             return new ChatGroq({
                 apiKey: config.GROQ_API_KEY,
-                modelName: "llama3-70b-8192",
+                modelName: "llama-3.3-70b-versatile",
                 temperature: 0.7,
-                maxTokens: 4096,
+                maxTokens: 8192,
+                maxRetries: 2
             });
 
         default:
