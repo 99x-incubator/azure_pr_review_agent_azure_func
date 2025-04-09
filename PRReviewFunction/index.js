@@ -221,8 +221,10 @@ function initializeAIModel(config) {
                 throw new Error("MODEL_TYPE is set to 'gemini' but GEMINI_API_KEY is missing");
             }
             return new ChatGoogleGenerativeAI({
-                modelName: "gemini-1.5-pro",
-                apiKey: config.GEMINI_API_KEY
+                modelName: "gemini-2.0-flash",
+                apiKey: config.GEMINI_API_KEY,
+                temperature: 0.7,
+                maxOutputTokens: 8192,
             });       
 
         // DeepSeek R1 case
@@ -232,10 +234,10 @@ function initializeAIModel(config) {
                 throw new Error("MODEL_TYPE is set to 'deepseek' but DEEPSEEK_API_KEY is missing");
             }
             return new ChatDeepSeek({
-                deepseekApiKey: config.DEEPSEEK_API_KEY,
-                modelName: "deepseek-reasoner",
+                apiKey: config.DEEPSEEK_API_KEY,
+                model: "deepseek-reasoner",
                 temperature: 0.7,
-                maxTokens: 4096,
+                maxTokens: 8192,
             });
             
         // Anthropic Claude case
@@ -248,7 +250,7 @@ function initializeAIModel(config) {
                 anthropicApiKey: config.ANTHROPIC_API_KEY,
                 modelName: "claude-3-5-sonnet-20240620",
                 temperature: 0.7,
-                maxTokens: 4096,
+                maxTokens: 8192,
             });
             
         // Groq case
@@ -312,6 +314,20 @@ async function processPullRequest(context, config, guidelines) {
 
     if (!model) {
         throw new Error("Failed to initialize AI model. Check API key configuration.");
+    }
+
+    // Test model connectivity
+    try {
+        context.log(`Testing ${config.MODEL_TYPE} model connectivity...`);
+        // Simple test prompt to verify model connectivity
+        const testPrompt = PromptTemplate.fromTemplate(`Respond with "OK" if you can read this.`);
+        const testChain = testPrompt.pipe(model);
+        const testResult = await testChain.invoke({});
+        context.log(`Model connectivity test result: ${JSON.stringify(testResult)}`);
+        context.log(`${config.MODEL_TYPE} model is working correctly`);
+    } catch (error) {
+        context.log.error(`Model connectivity test failed: ${error.message}`);
+        throw new Error(`Model connectivity test failed. The ${config.MODEL_TYPE} model could not be reached: ${error.message}`);
     }
     
     // 1. Authenticate with Azure DevOps
