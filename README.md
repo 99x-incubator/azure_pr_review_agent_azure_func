@@ -47,7 +47,7 @@ Automatically review pull requests in Azure DevOps using AI-powered code analysi
   - Azure Portal > Resource Groups > Create
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/cd279a40-7689-4b77-b31e-4d24bf287fcd" alt="image" width="450"></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/image.png" alt="image" width="450"></td>
     <td><img src="https://github.com/user-attachments/assets/44b07a00-f5dd-4380-b0c7-907f8122490d" alt="image" width="450"></td>
   </tr>
 </table>
