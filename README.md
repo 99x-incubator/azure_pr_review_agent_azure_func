@@ -47,8 +47,8 @@ Automatically review pull requests in Azure DevOps using AI-powered code analysi
   - Azure Portal > Resource Groups > Create
 <table>
   <tr>
-    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/image.png" alt="image" width="450"></td>
-    <td><img src="https://github.com/user-attachments/assets/44b07a00-f5dd-4380-b0c7-907f8122490d" alt="image" width="450"></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Resource%20Groups.png" alt="image" width="450"></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Create%20Resource%20Group.png" alt="image" width="450"></td>
   </tr>
 </table>
 
@@ -162,16 +162,16 @@ In the Azure Portal, navigate to your Function App > Configuration and add the f
        ```
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/61462fb2-cbe8-4b35-a83e-c1fd4cf0f915" alt="Image 1" width="400px" /></td>
-    <td><img src="https://github.com/user-attachments/assets/d9669452-ae9d-479d-9234-c9443f3e6604" alt="Image 2" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Project%20Settings.png" alt="Image 1" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Service%20Hooks.png" alt="Image 2" width="400px" /></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/424b5a53-8d27-490e-8db4-c52867377b14" alt="Image 3" width="400px" /></td>
-    <td><img src="https://github.com/user-attachments/assets/f25bd7d0-dd43-4a7d-b807-f10e58d56eab" alt="Image 4" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Create%20Subscription.png" alt="Image 3" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Next.png" alt="Image 4" width="400px" /></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/d818d527-ecf1-4879-8c87-5cce28bba82e" alt="Image 5" width="400px" /></td>
-    <td><img src="https://github.com/user-attachments/assets/a47945f8-c4ef-4400-a5cf-92e758e62f00" alt="Image 6" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Pull%20Request%20Created.png" alt="Image 5" width="400px" /></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Paste%20URL.png" alt="Image 6" width="400px" /></td>
   </tr>
 </table>
 
@@ -188,7 +188,7 @@ You can configure multiple API keys in your environment variables and switch bet
 - 🔒 Have fallback options if one service is unavailable
 
 **Below shown is a AI Models Comparison Table as of April 2025**
-<img src="https://github.com/user-attachments/assets/d67b4627-ff14-4dac-9de5-39113a2fb5fb" alt="Image 7" width="650px" />
+<img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Cost%20Comparison.png" alt="Image 7" width="650px" />
 
 ##### Notes:
 1. All prices are in USD and current as of April 2025
