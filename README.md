@@ -67,8 +67,8 @@ Automatically review pull requests in Azure DevOps using AI-powered code analysi
 - Use Node.js runtime stack
 <table>
   <tr>
-    <td><img width="600" alt="image" src="https://github.com/user-attachments/assets/02a60481-ac49-462a-af69-5462276eceb1" /></td>
-    <td><img width="575" alt="image" src="https://github.com/user-attachments/assets/eb31fbcf-5d49-44b7-88be-c82f66c540eb" /></td>
+    <td><img width="600" alt="image" src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Create%20Function%20App.png" /></td>
+    <td><img width="575" alt="image" src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Node.js%20runtime%20stack.png" /></td>
   </tr>
 </table>
 
