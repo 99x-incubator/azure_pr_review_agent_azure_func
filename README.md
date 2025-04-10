@@ -19,7 +19,7 @@ Automatically review pull requests in Azure DevOps using AI-powered code analysi
    - A new PR is created with the AI-suggested improvements
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/83068cbb-b33e-419b-a748-f18a16cc6230" alt="PR Review Process Diagram" width="700">
+  <img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/PR%20Review%20Process%20Diagram.png" alt="PR Review Process Diagram" width="700">
 </div>
 
 ## ✨ Features
