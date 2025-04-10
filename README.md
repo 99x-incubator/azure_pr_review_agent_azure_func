@@ -188,7 +188,7 @@ You can configure multiple API keys in your environment variables and switch bet
 - 🔒 Have fallback options if one service is unavailable
 
 **Below shown is a AI Models Comparison Table as of April 2025**
-<img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Cost%20Comparison.png" alt="Image 7" width="650px" />
+<img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Model%20Comparison.png" alt="Image 7" width="1100px" />
 
 ##### Notes:
 1. All prices are in USD and current as of April 2025
