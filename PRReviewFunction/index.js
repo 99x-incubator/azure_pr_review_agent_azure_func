@@ -227,7 +227,7 @@ function initializeAIModel(config,context) {
                 modelName: "gemini-2.0-flash",
                 apiKey: config.GEMINI_API_KEY,
                 temperature: 0.7,
-                maxOutputTokens: 8192,
+                maxOutputTokens: 32768,
             });      
  
         // DeepSeek R1 case
@@ -564,7 +564,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             // DeepSeek-R1 via Azure Inference Client
             const messages = [{
                 role: "system",
-                content: `You are a senior code reviewer. Follow these guidelines:\n${guidelines}`
+                content: `You are a senior code reviewer. Follow these guidelines:\n${guidelines}\n\nIMPORTANT: Do not include any thinking process or analysis in your response. Only provide the JSON response as specified.`
             }, {
                 role: "user",
                 content: `ANALYZE THESE CHANGES:
@@ -581,9 +581,9 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 4. Generate corrected version of the FULL FILE
                 5. Maintain original code structure where possible
                 6. If no changes are needed, add a comment indicating no changes are required
-
-           
-           
+                7. DO NOT include any thinking process or analysis in your response
+                8. ONLY provide the JSON response as specified below
+ 
                 RESPONSE FORMAT (JSON):
                 {
                     "comments": [{
@@ -607,7 +607,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             const deepseekPromise = model.path("/chat/completions").post({
                 body: {
                     messages,
-                    max_tokens: 8192,
+                    max_tokens: 32768,
                     temperature: 0.7,
                     model: "DeepSeek-R1",
                     response_format: { type: "json_object" }
@@ -629,15 +629,22 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             const resultText = response.body.choices[0].message.content;
             context.log(`[DeepSeek] Received response content length: ${resultText?.length || 0}`);
            
-            // Extract JSON from the response content
+            // Extract JSON from the response content - handle multiple formats
             let jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
             if (!jsonMatch) {
-                context.log.error(`[DeepSeek] No JSON found in response: ${resultText}`);
-                return { comments: [], newContent: newContent };
+                // Try alternative format without code blocks
+                jsonMatch = resultText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    context.log.error(`[DeepSeek] No JSON found in response: ${resultText}`);
+                    return { comments: [], newContent: newContent };
+                }
             }
            
             try {
-                const result = JSON.parse(jsonMatch[1]);
+                // Only remove thinking process
+                let jsonStr = jsonMatch[1].replace(/<think>[\s\S]*?<\/think>/g, '');
+               
+                const result = JSON.parse(jsonStr);
                 context.log(`[DeepSeek] Successfully parsed JSON with ${result.comments?.length || 0} comments`);
                
                 // Validate the result structure
@@ -671,6 +678,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 4. Generate corrected version of the FULL FILE
                 5. Maintain original code structure where possible
                 6. If no changes are needed, add a comment indicating no changes are required
+                7. Respond ONLY with valid JSON. Do NOT include any markdown formatting or code blocks
  
                 RESPONSE FORMAT (JSON):
                 {{
@@ -693,7 +701,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
    
            
             const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());
-            const result = await Promise.race([
+            const rawResult = await Promise.race([
                 chain.invoke({
                     guidelines,
                     numberedOld,
@@ -701,7 +709,24 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 }),
                 timeoutPromise
             ]);            
-            return processResult(result, newLines);
+            let cleanedResult = rawResult;
+            if (typeof cleanedResult === 'string') {
+                // Handle Azure OpenAI's potential markdown wrapping
+                const jsonMatch = cleanedResult.match(/```json\n([\s\S]*?)\n```/);
+                if (jsonMatch) {
+                    cleanedResult = jsonMatch[1];
+                }
+                
+                try {
+                    cleanedResult = JSON.parse(cleanedResult);
+                } catch (error) {
+                    context.log.error(`Azure OpenAI JSON Parse Error: ${error.message}`);
+                    context.log.error(`Raw Azure Response: ${cleanedResult}`);
+                    return { comments: [], newContent: newContent };
+                }
+            }
+
+            return processResult(cleanedResult, newLines);
         }
     } catch (error) {
         let errorMessage = 'AI analysis failed';
@@ -716,6 +741,9 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
         } else if (error.code === 'ECONNREFUSED') {
             errorMessage = 'Connection refused by AI service';
             console.error(`Connection refused for ${filePath}: The AI service refused the connection`);
+        } else if (error.message?.includes?.('quota')) {
+            errorMessage = 'Gemini API quota exceeded';
+            context.log.error('Gemini API quota exceeded');
         } else {
             console.error(`AI analysis error for ${filePath}:`, error);
         }      
@@ -839,10 +867,10 @@ async function createCorrectionPR(gitApi, repoId, originalPR, corrections, proje
       };
  
       const createdPR = await gitApi.createPullRequest(newPR, repoId, project);
-      context.log(`Created new PR #${createdPR.pullRequestId} with AI-suggested fixes`);
+      console.log(`Created new PR #${createdPR.pullRequestId} with AI-suggested fixes`);
       return createdPR;
   } catch (error) {
-      context.log.error("Failed to create correction PR:", error.message);
+      console.log.error("Failed to create correction PR:", error.message);
       throw error; // PROPAGATE ERROR UPSTREAM
   }
 }

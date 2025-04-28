@@ -14,5 +14,12 @@
       "direction": "out",
       "name": "res"
     }
-  ]
+  ],
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Error",
+      "Function": "Trace"
+    }
+  }
 }
