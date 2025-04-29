@@ -199,3 +199,20 @@ You can configure multiple API keys in your environment variables and switch bet
 6. Deployment options (global, regional) may affect pricing, especially for Azure OpenAI
 7. Some models offer time-based discounts (e.g., DeepSeek's off-peak pricing)
 8. Actual performance may vary based on specific use cases and implementation
+
+
+
+##### 📚 Resources
+
+- Google Gemini: [cloud.google.com/vertex-ai/generative-ai/pricing](http://cloud.google.com/vertex-ai/generative-ai/pricing)
+- OpenAI models: [openai.com/api/pricing](http://openai.com/api/pricing)
+- OpenAI o3-mini: [apidog.com/blog/openai-o3-mini-api-pricing](http://apidog.com/blog/openai-o3-mini-api-pricing)
+- GPT-4.5: [apidog.com/blog/gpt-4-5-api-price](http://apidog.com/blog/gpt-4-5-api-price)
+- GPT-4o: [dev.to/foxinfotech/how-much-does-gpt-4o-cost-per-month-4l17](http://dev.to/foxinfotech/how-much-does-gpt-4o-cost-per-month-4l17)
+- Azure OpenAI: [azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service](http://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service)
+- Claude models: [anthropic.com/claude/sonnet](http://anthropic.com/claude/sonnet)
+- Claude Haiku pricing: [techcrunch.com/2024/11/04/anthropic-hikes-the-price-of-its-haiku-model](http://techcrunch.com/2024/11/04/anthropic-hikes--the-price-of-its-haiku-model)
+- DeepSeek models: [api-docs.deepseek.com/quick_start/pricing](http://api-docs.deepseek.com/quick_start/pricing)
+- DeepSeek R1: [deepseek-r1.com/pricing](http://deepseek-r1.com/pricing)
+- Groq pricing: [groq.com/pricing](http://groq.com/pricing)
+- GroqCloud models: [groq.com/groqcloud-now-offers-qwen-2-5-32b-and-deepseek-r1-distill-qwen-32b](http://groq.com/groqcloud-now-offers-qwen-2-5-32b-and-deepseek-r1-distill-qwen-32b)
