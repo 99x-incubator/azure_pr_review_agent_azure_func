@@ -15,18 +15,27 @@
     "pr",
     "review"
   ],
-  "author": "",
+ "author": "",
   "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.0",
+    "@azure-rest/ai-inference": "latest",
+    "@azure/core-auth": "latest",
+    
+    "@azure/core-sse": "latest",
     "@azure/functions": "^3.5.1",
+    "@langchain/anthropic": "^0.3.16",
+    "@langchain/azure-openai": "^0.0.11",
     "@langchain/community": "^0.3.39",
     "@langchain/core": "^0.3.38",
+    "@langchain/deepseek": "^0.0.1",
     "@langchain/google-genai": "^0.1.8",
+    "@langchain/groq": "^0.2.1",
     "@langchain/openai": "^0.4.2",
+    "axios": "^1.6.0",
     "azure-devops-node-api": "^14.1.0",
+    "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
     "langchain": "^0.3.19",
-    "cheerio": "^1.0.0"
+    "openai": "^4.92.1"
   }
 }
