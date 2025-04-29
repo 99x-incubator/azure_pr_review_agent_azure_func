@@ -2,7 +2,7 @@
 
 <table>
   <tr>
-    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Resource%20Groups.png" alt="image" width="450"></td>
+    <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Add_Budget.png" alt="image" width="450"></td>
     <td><img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/Budget-ResourceType.png" alt="image" width="450"></td>
   </tr>
   <tr>
