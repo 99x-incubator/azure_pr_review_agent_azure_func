@@ -227,7 +227,7 @@ function initializeAIModel(config,context) {
                 modelName: "gemini-2.0-flash",
                 apiKey: config.GEMINI_API_KEY,
                 temperature: 0.7,
-                maxOutputTokens: 32768,
+                maxOutputTokens: 8192,
             });      
  
         // DeepSeek R1 case
@@ -701,7 +701,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
    
            
             const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());
-            const rawResult = await Promise.race([
+            const result = await Promise.race([
                 chain.invoke({
                     guidelines,
                     numberedOld,
@@ -709,24 +709,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 }),
                 timeoutPromise
             ]);            
-            let cleanedResult = rawResult;
-            if (typeof cleanedResult === 'string') {
-                // Handle Azure OpenAI's potential markdown wrapping
-                const jsonMatch = cleanedResult.match(/```json\n([\s\S]*?)\n```/);
-                if (jsonMatch) {
-                    cleanedResult = jsonMatch[1];
-                }
-                
-                try {
-                    cleanedResult = JSON.parse(cleanedResult);
-                } catch (error) {
-                    context.log.error(`Azure OpenAI JSON Parse Error: ${error.message}`);
-                    context.log.error(`Raw Azure Response: ${cleanedResult}`);
-                    return { comments: [], newContent: newContent };
-                }
-            }
-
-            return processResult(cleanedResult, newLines);
+            return processResult(result, newLines);
         }
     } catch (error) {
         let errorMessage = 'AI analysis failed';
@@ -741,9 +724,6 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
         } else if (error.code === 'ECONNREFUSED') {
             errorMessage = 'Connection refused by AI service';
             console.error(`Connection refused for ${filePath}: The AI service refused the connection`);
-        } else if (error.message?.includes?.('quota')) {
-            errorMessage = 'Gemini API quota exceeded';
-            context.log.error('Gemini API quota exceeded');
         } else {
             console.error(`AI analysis error for ${filePath}:`, error);
         }      
