@@ -90,7 +90,7 @@ az functionapp create --resource-group <RESOURCE_GROUP_NAME> --consumption-plan-
   - Open the project in VS Code
   - Install the Azure Functions extension
   - Sign in to your Azure account
-  - ```ctrl```+```shift```+```P``` on the project and select "Deploy to Function App"
+  - Open Command Pallete (```Ctrl```+```Shift```+```P``` on Windows or ```Shift```+```⌘```+```P``` on mac) and select "Deploy to Function App"
   - Select your target Function App
 
 ##### **Using CLI**
