@@ -127,7 +127,7 @@ func azure functionapp publish <YOUR_FUNCTION_APP_NAME>
 
 ### 4. Configure Application Settings ⚙️
 
-In the Azure Portal, navigate to your Function App > Configuration and add the following application settings:
+In the Azure Portal, navigate to your Function App > Settings > Environment variables and add the following application settings:
 
 | Environmental Variable Name | Description |
 |-------------|-------------|
