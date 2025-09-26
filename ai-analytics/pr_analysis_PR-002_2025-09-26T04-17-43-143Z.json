@@ -1,0 +1,133 @@
+{
+  "timestamp": "2025-09-26T04:17:43.143Z",
+  "prId": "PR-002",
+  "prTitle": "Sample PR PR-002",
+  "repository": "backend-api",
+  "idealCommentNumber": 5,
+  "files": [
+    {
+      "filePath": "multiple_files",
+      "stage1": {
+        "totalCommentsFound": 6,
+        "commentsByCategory": {
+          "security": 1,
+          "bug": 0,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 5
+        },
+        "allComments": [
+          {
+            "lineNumber": 15,
+            "comment": "SQL injection vulnerability detected",
+            "filePath": "src/database.js",
+            "category": "security",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 30,
+            "comment": "Database connection not properly closed",
+            "filePath": "src/database.js",
+            "category": "resource-leak",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 50,
+            "comment": "Consider using prepared statements",
+            "filePath": "src/queries.js",
+            "category": "best-practice",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 70,
+            "comment": "Hardcoded database credentials",
+            "filePath": "src/config.js",
+            "category": "security",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 85,
+            "comment": "Missing database transaction rollback",
+            "filePath": "src/transaction.js",
+            "category": "data-integrity",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 100,
+            "comment": "Inefficient query - consider indexing",
+            "filePath": "src/reports.js",
+            "category": "performance",
+            "priority": "medium"
+          }
+        ]
+      },
+      "stage2": {
+        "shortlistedCount": 5,
+        "commentsByCategory": {
+          "security": 1,
+          "bug": 0,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 4
+        },
+        "prioritizedComments": [
+          {
+            "lineNumber": 15,
+            "comment": "SQL injection vulnerability detected",
+            "filePath": "src/database.js",
+            "category": "security",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 70,
+            "comment": "Hardcoded database credentials",
+            "filePath": "src/config.js",
+            "category": "security",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 30,
+            "comment": "Database connection not properly closed",
+            "filePath": "src/database.js",
+            "category": "resource-leak",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 85,
+            "comment": "Missing database transaction rollback",
+            "filePath": "src/transaction.js",
+            "category": "data-integrity",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 50,
+            "comment": "Consider using prepared statements",
+            "filePath": "src/queries.js",
+            "category": "best-practice",
+            "priority": "medium"
+          }
+        ],
+        "reductionPercentage": 17
+      },
+      "qualityMetrics": {
+        "criticalIssuesCaptured": {
+          "securityCaptureRate": "100.0",
+          "bugCaptureRate": "N/A",
+          "performanceCaptureRate": "N/A"
+        },
+        "prioritizationEffectiveness": {
+          "highPriorityPercentage": "20.0",
+          "lowPriorityFiltered": 0
+        }
+      }
+    }
+  ],
+  "overallMetrics": {
+    "totalCommentsGenerated": 6,
+    "totalCommentsPrioritized": 5,
+    "overallReductionPercentage": 17,
+    "effectivenessScore": null
+  }
+}

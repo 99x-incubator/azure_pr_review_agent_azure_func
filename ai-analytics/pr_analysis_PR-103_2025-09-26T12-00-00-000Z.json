@@ -1,0 +1,131 @@
+{
+  "timestamp": "2025-09-26T12:00:00.000Z",
+  "prId": "PR-103",
+  "prTitle": "Database Migration and Schema Updates",
+  "repository": "backend-api",
+  "idealCommentNumber": 5,
+  "allComments": [
+    {
+      "lineNumber": 10,
+      "comment": "Database migration lacks rollback strategy",
+      "filePath": "migrations/001_add_user_roles.sql",
+      "category": "database",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 35,
+      "comment": "Missing foreign key constraints could cause data integrity issues",
+      "filePath": "migrations/001_add_user_roles.sql",
+      "category": "data-integrity",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 60,
+      "comment": "Index missing on frequently queried column",
+      "filePath": "models/User.js", 
+      "category": "performance",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 85,
+      "comment": "Database connection pool configuration needs tuning",
+      "filePath": "config/database.js",
+      "category": "performance",
+      "priority": "medium"
+    },
+    {
+      "lineNumber": 120,
+      "comment": "Consider adding database query logging for debugging",
+      "filePath": "services/UserService.js",
+      "category": "observability",
+      "priority": "medium"
+    },
+    {
+      "lineNumber": 150,
+      "comment": "Migration script should validate data before transformation",
+      "filePath": "migrations/001_add_user_roles.sql",
+      "category": "data-validation",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 180,
+      "comment": "Add database backup verification step",
+      "filePath": "scripts/deploy.sh",
+      "category": "reliability",
+      "priority": "medium"
+    },
+    {
+      "lineNumber": 200,
+      "comment": "Consider using database transactions for atomic operations",
+      "filePath": "services/UserService.js",
+      "category": "best-practice",
+      "priority": "medium"
+    }
+  ],
+  "prioritizedComments": [
+    {
+      "lineNumber": 10,
+      "comment": "Database migration lacks rollback strategy",
+      "filePath": "migrations/001_add_user_roles.sql",
+      "category": "database",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 35,
+      "comment": "Missing foreign key constraints could cause data integrity issues",
+      "filePath": "migrations/001_add_user_roles.sql", 
+      "category": "data-integrity",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 60,
+      "comment": "Index missing on frequently queried column",
+      "filePath": "models/User.js",
+      "category": "performance",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 150,
+      "comment": "Migration script should validate data before transformation",
+      "filePath": "migrations/001_add_user_roles.sql",
+      "category": "data-validation",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 85,
+      "comment": "Database connection pool configuration needs tuning",
+      "filePath": "config/database.js",
+      "category": "performance",
+      "priority": "medium"
+    }
+  ],
+  "riskAnalysis": {
+    "overall": 85,
+    "level": "CRITICAL",
+    "breakdown": {
+      "complexity": 18,
+      "security": 15,
+      "testCoverage": 20,
+      "fileImpact": 22,
+      "criticalIssues": 10
+    }
+  },
+  "categorizedComments": {
+    "summary": {
+      "totalComments": 8,
+      "criticalCount": 1,
+      "highCount": 3,
+      "mediumCount": 4,
+      "lowCount": 0
+    }
+  },
+  "metadata": {
+    "repositoryId": "repo-789",
+    "repositoryName": "backend-api",
+    "filesChanged": 5,
+    "idealCommentNumber": 5,
+    "timestamp": "2025-09-26T12:00:00.000Z",
+    "prTitle": "Database Migration and Schema Updates",
+    "superAnalysisEnabled": true
+  }
+}

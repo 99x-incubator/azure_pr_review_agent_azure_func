@@ -1,0 +1,133 @@
+{
+  "timestamp": "2025-09-26T04:17:43.144Z",
+  "prId": "PR-004",
+  "prTitle": "Sample PR PR-004",
+  "repository": "python-analytics",
+  "idealCommentNumber": 5,
+  "files": [
+    {
+      "filePath": "multiple_files",
+      "stage1": {
+        "totalCommentsFound": 6,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 1,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 5
+        },
+        "allComments": [
+          {
+            "lineNumber": 12,
+            "comment": "Function exceeds maximum complexity threshold",
+            "filePath": "src/processor.py",
+            "category": "complexity",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 28,
+            "comment": "Potential division by zero",
+            "filePath": "src/calculator.py",
+            "category": "bug-risk",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 45,
+            "comment": "Missing type hints for function parameters",
+            "filePath": "src/utils.py",
+            "category": "typing",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 60,
+            "comment": "Exception not properly handled",
+            "filePath": "src/file_handler.py",
+            "category": "error-handling",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 75,
+            "comment": "Inefficient loop - consider list comprehension",
+            "filePath": "src/data_processor.py",
+            "category": "performance",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 90,
+            "comment": "Hardcoded file paths should be configurable",
+            "filePath": "src/config.py",
+            "category": "configuration",
+            "priority": "medium"
+          }
+        ]
+      },
+      "stage2": {
+        "shortlistedCount": 5,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 1,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 4
+        },
+        "prioritizedComments": [
+          {
+            "lineNumber": 28,
+            "comment": "Potential division by zero",
+            "filePath": "src/calculator.py",
+            "category": "bug-risk",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 60,
+            "comment": "Exception not properly handled",
+            "filePath": "src/file_handler.py",
+            "category": "error-handling",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 12,
+            "comment": "Function exceeds maximum complexity threshold",
+            "filePath": "src/processor.py",
+            "category": "complexity",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 90,
+            "comment": "Hardcoded file paths should be configurable",
+            "filePath": "src/config.py",
+            "category": "configuration",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 45,
+            "comment": "Missing type hints for function parameters",
+            "filePath": "src/utils.py",
+            "category": "typing",
+            "priority": "low"
+          }
+        ],
+        "reductionPercentage": 17
+      },
+      "qualityMetrics": {
+        "criticalIssuesCaptured": {
+          "securityCaptureRate": "N/A",
+          "bugCaptureRate": "100.0",
+          "performanceCaptureRate": "N/A"
+        },
+        "prioritizationEffectiveness": {
+          "highPriorityPercentage": "20.0",
+          "lowPriorityFiltered": 0
+        }
+      }
+    }
+  ],
+  "overallMetrics": {
+    "totalCommentsGenerated": 6,
+    "totalCommentsPrioritized": 5,
+    "overallReductionPercentage": 17,
+    "effectivenessScore": null
+  }
+}

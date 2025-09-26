@@ -1,0 +1,140 @@
+{
+  "timestamp": "2025-09-26T04:17:43.143Z",
+  "prId": "PR-003",
+  "prTitle": "Sample PR PR-003",
+  "repository": "react-dashboard",
+  "idealCommentNumber": 5,
+  "files": [
+    {
+      "filePath": "multiple_files",
+      "stage1": {
+        "totalCommentsFound": 7,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 0,
+          "performance": 2,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 5
+        },
+        "allComments": [
+          {
+            "lineNumber": 20,
+            "comment": "React component missing key prop in list",
+            "filePath": "components/UserList.jsx",
+            "category": "react",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 35,
+            "comment": "useEffect missing dependency array",
+            "filePath": "components/Dashboard.jsx",
+            "category": "react-hooks",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 50,
+            "comment": "Prop validation missing",
+            "filePath": "components/Modal.jsx",
+            "category": "prop-types",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 65,
+            "comment": "State update may cause infinite re-renders",
+            "filePath": "hooks/useData.js",
+            "category": "performance",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 80,
+            "comment": "Accessibility: missing alt text for image",
+            "filePath": "components/Gallery.jsx",
+            "category": "accessibility",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 95,
+            "comment": "CSS-in-JS performance anti-pattern",
+            "filePath": "styles/theme.js",
+            "category": "performance",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 110,
+            "comment": "Memory leak: event listener not cleaned up",
+            "filePath": "utils/eventHandler.js",
+            "category": "memory-leak",
+            "priority": "high"
+          }
+        ]
+      },
+      "stage2": {
+        "shortlistedCount": 5,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 0,
+          "performance": 1,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 4
+        },
+        "prioritizedComments": [
+          {
+            "lineNumber": 65,
+            "comment": "State update may cause infinite re-renders",
+            "filePath": "hooks/useData.js",
+            "category": "performance",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 20,
+            "comment": "React component missing key prop in list",
+            "filePath": "components/UserList.jsx",
+            "category": "react",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 110,
+            "comment": "Memory leak: event listener not cleaned up",
+            "filePath": "utils/eventHandler.js",
+            "category": "memory-leak",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 35,
+            "comment": "useEffect missing dependency array",
+            "filePath": "components/Dashboard.jsx",
+            "category": "react-hooks",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 80,
+            "comment": "Accessibility: missing alt text for image",
+            "filePath": "components/Gallery.jsx",
+            "category": "accessibility",
+            "priority": "medium"
+          }
+        ],
+        "reductionPercentage": 29
+      },
+      "qualityMetrics": {
+        "criticalIssuesCaptured": {
+          "securityCaptureRate": "N/A",
+          "bugCaptureRate": "N/A",
+          "performanceCaptureRate": "50.0"
+        },
+        "prioritizationEffectiveness": {
+          "highPriorityPercentage": "20.0",
+          "lowPriorityFiltered": 0
+        }
+      }
+    }
+  ],
+  "overallMetrics": {
+    "totalCommentsGenerated": 7,
+    "totalCommentsPrioritized": 5,
+    "overallReductionPercentage": 29,
+    "effectivenessScore": null
+  }
+}

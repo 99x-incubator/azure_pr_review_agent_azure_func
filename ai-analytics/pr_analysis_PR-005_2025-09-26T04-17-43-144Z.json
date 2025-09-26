@@ -1,0 +1,147 @@
+{
+  "timestamp": "2025-09-26T04:17:43.144Z",
+  "prId": "PR-005",
+  "prTitle": "Sample PR PR-005",
+  "repository": "concurrent-processor",
+  "idealCommentNumber": 5,
+  "files": [
+    {
+      "filePath": "multiple_files",
+      "stage1": {
+        "totalCommentsFound": 8,
+        "commentsByCategory": {
+          "security": 1,
+          "bug": 0,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 7
+        },
+        "allComments": [
+          {
+            "lineNumber": 18,
+            "comment": "Race condition in concurrent access",
+            "filePath": "src/threading_utils.py",
+            "category": "concurrency",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 35,
+            "comment": "Resource not released in finally block",
+            "filePath": "src/resource_manager.py",
+            "category": "resource-leak",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 52,
+            "comment": "Magic number should be named constant",
+            "filePath": "src/constants.py",
+            "category": "maintainability",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 68,
+            "comment": "Potential deadlock situation",
+            "filePath": "src/lock_manager.py",
+            "category": "concurrency",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 84,
+            "comment": "Missing logging for critical operations",
+            "filePath": "src/operations.py",
+            "category": "observability",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 100,
+            "comment": "Unit tests missing for edge cases",
+            "filePath": "tests/test_operations.py",
+            "category": "testing",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 115,
+            "comment": "Deprecated API usage",
+            "filePath": "src/legacy_adapter.py",
+            "category": "deprecation",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 130,
+            "comment": "Buffer overflow vulnerability",
+            "filePath": "src/buffer_handler.c",
+            "category": "security",
+            "priority": "critical"
+          }
+        ]
+      },
+      "stage2": {
+        "shortlistedCount": 5,
+        "commentsByCategory": {
+          "security": 1,
+          "bug": 0,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 4
+        },
+        "prioritizedComments": [
+          {
+            "lineNumber": 18,
+            "comment": "Race condition in concurrent access",
+            "filePath": "src/threading_utils.py",
+            "category": "concurrency",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 68,
+            "comment": "Potential deadlock situation",
+            "filePath": "src/lock_manager.py",
+            "category": "concurrency",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 130,
+            "comment": "Buffer overflow vulnerability",
+            "filePath": "src/buffer_handler.c",
+            "category": "security",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 35,
+            "comment": "Resource not released in finally block",
+            "filePath": "src/resource_manager.py",
+            "category": "resource-leak",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 84,
+            "comment": "Missing logging for critical operations",
+            "filePath": "src/operations.py",
+            "category": "observability",
+            "priority": "medium"
+          }
+        ],
+        "reductionPercentage": 38
+      },
+      "qualityMetrics": {
+        "criticalIssuesCaptured": {
+          "securityCaptureRate": "100.0",
+          "bugCaptureRate": "N/A",
+          "performanceCaptureRate": "N/A"
+        },
+        "prioritizationEffectiveness": {
+          "highPriorityPercentage": "20.0",
+          "lowPriorityFiltered": 0
+        }
+      }
+    }
+  ],
+  "overallMetrics": {
+    "totalCommentsGenerated": 8,
+    "totalCommentsPrioritized": 5,
+    "overallReductionPercentage": 38,
+    "effectivenessScore": null
+  }
+}
