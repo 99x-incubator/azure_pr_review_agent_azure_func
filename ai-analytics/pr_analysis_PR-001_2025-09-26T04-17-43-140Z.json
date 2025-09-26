@@ -1,0 +1,140 @@
+{
+  "timestamp": "2025-09-26T04:17:43.140Z",
+  "prId": "PR-001",
+  "prTitle": "Sample PR PR-001",
+  "repository": "frontend-app",
+  "idealCommentNumber": 5,
+  "files": [
+    {
+      "filePath": "multiple_files",
+      "stage1": {
+        "totalCommentsFound": 7,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 2,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 5
+        },
+        "allComments": [
+          {
+            "lineNumber": 10,
+            "comment": "Consider using const instead of let for immutable variables",
+            "filePath": "src/index.js",
+            "category": "code-quality",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 25,
+            "comment": "This function lacks error handling",
+            "filePath": "src/index.js",
+            "category": "error-handling",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 45,
+            "comment": "Add JSDoc documentation for this function",
+            "filePath": "src/utils.js",
+            "category": "documentation",
+            "priority": "low"
+          },
+          {
+            "lineNumber": 60,
+            "comment": "Potential null pointer exception here",
+            "filePath": "src/utils.js",
+            "category": "bug-risk",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 80,
+            "comment": "Consider extracting this logic into a separate method",
+            "filePath": "src/service.js",
+            "category": "refactoring",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 95,
+            "comment": "Missing input validation",
+            "filePath": "src/service.js",
+            "category": "security",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 110,
+            "comment": "Unused import statement",
+            "filePath": "src/config.js",
+            "category": "cleanup",
+            "priority": "low"
+          }
+        ]
+      },
+      "stage2": {
+        "shortlistedCount": 5,
+        "commentsByCategory": {
+          "security": 0,
+          "bug": 2,
+          "performance": 0,
+          "bestPractice": 0,
+          "codeStyle": 0,
+          "other": 3
+        },
+        "prioritizedComments": [
+          {
+            "lineNumber": 60,
+            "comment": "Potential null pointer exception here",
+            "filePath": "src/utils.js",
+            "category": "bug-risk",
+            "priority": "critical"
+          },
+          {
+            "lineNumber": 25,
+            "comment": "This function lacks error handling",
+            "filePath": "src/index.js",
+            "category": "error-handling",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 95,
+            "comment": "Missing input validation",
+            "filePath": "src/service.js",
+            "category": "security",
+            "priority": "high"
+          },
+          {
+            "lineNumber": 10,
+            "comment": "Consider using const instead of let for immutable variables",
+            "filePath": "src/index.js",
+            "category": "code-quality",
+            "priority": "medium"
+          },
+          {
+            "lineNumber": 80,
+            "comment": "Consider extracting this logic into a separate method",
+            "filePath": "src/service.js",
+            "category": "refactoring",
+            "priority": "medium"
+          }
+        ],
+        "reductionPercentage": 29
+      },
+      "qualityMetrics": {
+        "criticalIssuesCaptured": {
+          "securityCaptureRate": "N/A",
+          "bugCaptureRate": "100.0",
+          "performanceCaptureRate": "N/A"
+        },
+        "prioritizationEffectiveness": {
+          "highPriorityPercentage": "40.0",
+          "lowPriorityFiltered": 0
+        }
+      }
+    }
+  ],
+  "overallMetrics": {
+    "totalCommentsGenerated": 7,
+    "totalCommentsPrioritized": 5,
+    "overallReductionPercentage": 29,
+    "effectivenessScore": null
+  }
+}

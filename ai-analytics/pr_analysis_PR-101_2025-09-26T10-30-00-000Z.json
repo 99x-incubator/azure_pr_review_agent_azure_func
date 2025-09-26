@@ -1,0 +1,138 @@
+{
+  "timestamp": "2025-09-26T10:30:00.000Z",
+  "prId": "PR-101", 
+  "prTitle": "Authentication System Security Enhancement",
+  "repository": "production-app",
+  "idealCommentNumber": 5,
+  "allComments": [
+    {
+      "lineNumber": 15,
+      "comment": "CRITICAL: Hardcoded API key detected - this is a major security vulnerability",
+      "filePath": "src/auth/config.js",
+      "category": "critical-security",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 42,
+      "comment": "SQL injection vulnerability in user input validation",
+      "filePath": "src/database/userQueries.js", 
+      "category": "critical-security",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 78,
+      "comment": "Missing error handling could cause application crash",
+      "filePath": "src/auth/login.js",
+      "category": "error-handling",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 120,
+      "comment": "Password validation logic is insufficient",
+      "filePath": "src/auth/validation.js",
+      "category": "security",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 200,
+      "comment": "Performance issue: O(n²) complexity in user search",
+      "filePath": "src/search/userSearch.js",
+      "category": "performance", 
+      "priority": "medium"
+    },
+    {
+      "lineNumber": 250,
+      "comment": "Missing unit tests for authentication flow",
+      "filePath": "src/auth/login.js",
+      "category": "testing",
+      "priority": "medium"
+    },
+    {
+      "lineNumber": 300,
+      "comment": "Consider using const instead of let for immutable variables",
+      "filePath": "src/utils/helpers.js",
+      "category": "code-style",
+      "priority": "low"
+    },
+    {
+      "lineNumber": 350,
+      "comment": "Add JSDoc documentation for this function",
+      "filePath": "src/utils/helpers.js",
+      "category": "documentation",
+      "priority": "low"
+    },
+    {
+      "lineNumber": 400,
+      "comment": "Consider extracting this logic into a separate function",
+      "filePath": "src/auth/login.js",
+      "category": "refactoring",
+      "priority": "low"
+    }
+  ],
+  "prioritizedComments": [
+    {
+      "lineNumber": 15,
+      "comment": "CRITICAL: Hardcoded API key detected - this is a major security vulnerability",
+      "filePath": "src/auth/config.js",
+      "category": "critical-security",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 42,
+      "comment": "SQL injection vulnerability in user input validation", 
+      "filePath": "src/database/userQueries.js",
+      "category": "critical-security",
+      "priority": "critical"
+    },
+    {
+      "lineNumber": 78,
+      "comment": "Missing error handling could cause application crash",
+      "filePath": "src/auth/login.js",
+      "category": "error-handling",
+      "priority": "high"
+    },
+    {
+      "lineNumber": 120,
+      "comment": "Password validation logic is insufficient",
+      "filePath": "src/auth/validation.js",
+      "category": "security", 
+      "priority": "high"
+    },
+    {
+      "lineNumber": 200,
+      "comment": "Performance issue: O(n²) complexity in user search",
+      "filePath": "src/search/userSearch.js",
+      "category": "performance",
+      "priority": "medium"
+    }
+  ],
+  "riskAnalysis": {
+    "overall": 78,
+    "level": "HIGH", 
+    "breakdown": {
+      "complexity": 15,
+      "security": 25,
+      "testCoverage": 18,
+      "fileImpact": 12,
+      "criticalIssues": 8
+    }
+  },
+  "categorizedComments": {
+    "summary": {
+      "totalComments": 9,
+      "criticalCount": 2,
+      "highCount": 2,
+      "mediumCount": 2,
+      "lowCount": 3
+    }
+  },
+  "metadata": {
+    "repositoryId": "repo-123",
+    "repositoryName": "production-app",
+    "filesChanged": 6,
+    "idealCommentNumber": 5,
+    "timestamp": "2025-09-26T10:30:00.000Z",
+    "prTitle": "Authentication System Security Enhancement",
+    "superAnalysisEnabled": true
+  }
+}

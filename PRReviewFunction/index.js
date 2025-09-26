@@ -16,6 +16,10 @@ const { TextLoader } = require('langchain/document_loaders/fs/text');
 const { CheerioWebBaseLoader } = require('@langchain/community/document_loaders/web/cheerio');
 const fs = require('fs').promises;
 const path = require('path');
+const AIDecisionAnalytics = require('../AIDecisionAnalytics');
+const PRRiskAnalyzer = require('../PRRiskAnalyzer');
+const CommentCategorizer = require('../CommentCategorizer');
+const DiffAnalyzer = require('../DiffAnalyzer');
 require('dotenv/config');
  
 // Interfaces for AI comments and file corrections
@@ -130,7 +134,8 @@ module.exports = async function (context, req) {
             INSTRUCTION_SOURCE: process.env.INSTRUCTION_SOURCE,
             MODEL_TYPE: process.env.MODEL_TYPE,
             CREATE_NEW_PR: process.env.CREATE_NEW_PR ?
-                process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false
+                process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false,
+            IDEAL_COMMMENT_NUMBER: parseInt(process.env.IDEAL_COMMMENT_NUMBER) || 5
         };
  
  
@@ -318,7 +323,10 @@ async function processPullRequest(context, config, guidelines) {
     // Initialize AI model
     const model = initializeAIModel(config,context);
     const corrections = [];
- 
+    
+    // Initialize analytics
+    const analytics = new AIDecisionAnalytics(context);
+
     if (!model) {
         throw new Error("Failed to initialize AI model. Check API key configuration.");
     }
@@ -327,12 +335,12 @@ async function processPullRequest(context, config, guidelines) {
     const authHandler = azdev.getPersonalAccessTokenHandler(config.PAT);
     const connection = new azdev.WebApi(`https://dev.azure.com/${config.ORG}`, authHandler);
     const gitApi = await connection.getGitApi();
- 
+
     // 2. Get target repository
     const repos = await gitApi.getRepositories(config.PROJECT);
     const repo = repos.find(r => r.name === config.REPO_NAME);
     if (!repo?.id) throw new Error("Repository not found");
- 
+
     // 3. Get target pull request
     const targetPR = await gitApi.getPullRequest(repo.id, config.PR_ID, config.PROJECT);
    
@@ -341,18 +349,18 @@ async function processPullRequest(context, config, guidelines) {
         context.log("Skipping draft pull request");
         return { message: "Skipped draft pull request" };
     }
- 
+
     if (!targetPR?.pullRequestId || !targetPR.sourceRefName || !targetPR.targetRefName) {
         throw new Error("PR not found or missing ref names");
     }
- 
+
     //Check if AI comments already exist for this PR
     const hasComments = await hasExistingAIComments(gitApi, repo.id, targetPR.pullRequestId, config.PROJECT);
     if (hasComments) {
         context.log("AI comments already exist for this PR, skipping");
         return { message: "AI comments already exist for this PR, skipping" };
     }
- 
+
     // 4. Get PR changes using iterations
     const iterations = await gitApi.getPullRequestIterations(repo.id, targetPR.pullRequestId, config.PROJECT);
     const latestIterationId = iterations[iterations.length - 1]?.id;
@@ -364,7 +372,11 @@ async function processPullRequest(context, config, guidelines) {
         latestIterationId,
         config.PROJECT
     );
- 
+
+    // Collect all comments for analytics
+    let allComments = [];
+    let allPrioritizedComments = [];
+
     // 5. Process each changed file
     // Use Promise.all to process all files in parallel but wait for all to complete
     const fileProcessingPromises = [];
@@ -372,7 +384,7 @@ async function processPullRequest(context, config, guidelines) {
     for (const change of prChanges.changeEntries || []) {
         const itemPath = change.item?.path;
         if (!itemPath || change.item?.isFolder) continue;
- 
+
         // Create a promise for processing this file
         const filePromise = (async () => {
             // Get file content from both branches
@@ -380,14 +392,39 @@ async function processPullRequest(context, config, guidelines) {
                 getFileContent(gitApi, repo.id, itemPath, targetPR.targetRefName, config.PROJECT),
                 getFileContent(gitApi, repo.id, itemPath, targetPR.sourceRefName, config.PROJECT)
             ]);
- 
-            // Generate AI comments
-            context.log(`Generating comments for ${itemPath}`);
-            const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model,context);
-            context.log(`Generated ${analysis.comments.length} comments for ${itemPath}`);
+
+            // Stage 1: Generate ALL AI comments (no limits)
+            context.log(`Stage 1: Generating all possible comments for ${itemPath}`);
+            const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model, context);
+            context.log(`Stage 1: Generated ${analysis.comments.length} total comments for ${itemPath}`);
+            
+            // Stage 2: Prioritize and shortlist most important comments
+            context.log(`Stage 2: Prioritizing comments using IDEAL_COMMENT_NUMBER: ${config.IDEAL_COMMMENT_NUMBER}`);
+            const prioritizedComments = await prioritizeComments(
+                analysis.comments, 
+                guidelines, 
+                model, 
+                context, 
+                config.IDEAL_COMMMENT_NUMBER
+            );
+            context.log(`Stage 2: Shortlisted to ${prioritizedComments.length} most important comments for ${itemPath}`);
+            
+            // Add file path context to comments for analytics
+            const allCommentsWithFile = analysis.comments.map(comment => ({
+                ...comment,
+                filePath: itemPath
+            }));
+            const prioritizedCommentsWithFile = prioritizedComments.map(comment => ({
+                ...comment,
+                filePath: itemPath
+            }));
+            
+            // Collect for analytics
+            allComments = allComments.concat(allCommentsWithFile);
+            allPrioritizedComments = allPrioritizedComments.concat(prioritizedCommentsWithFile);
            
-            // Post comments to Azure DevOps
-            for (const comment of analysis.comments) {
+            // Post prioritized comments to Azure DevOps
+            for (const comment of prioritizedComments) {
                 await createCommentThread(
                     gitApi,
                     repo.id,
@@ -397,9 +434,7 @@ async function processPullRequest(context, config, guidelines) {
                     comment.lineNumber,
                     config.PROJECT
                 );
-            }
- 
-            // Update the correction collection
+            }            // Update the correction collection
             if (analysis.newContent !== newContent && validateCorrection(newContent, analysis.newContent)) {
                 corrections.push({
                     path: itemPath,
@@ -414,7 +449,117 @@ async function processPullRequest(context, config, guidelines) {
    
     // Wait for all file processing to complete
     await Promise.all(fileProcessingPromises);
- 
+    
+    // 🚀 SUPER-POWERED AI ANALYSIS SUITE 🚀
+    
+    // 1. RISK SCORING SYSTEM 📊
+    context.log('🔍 Calculating PR Risk Score...');
+    const riskAnalyzer = new PRRiskAnalyzer(context);
+    const prRiskData = await riskAnalyzer.calculatePRRisk(
+        targetPR,
+        prChanges.changeEntries || [],
+        allPrioritizedComments
+    );
+    context.log(`📊 PR Risk Level: ${prRiskData.level} (${prRiskData.overall}/100)`);
+
+    // 2. INTELLIGENT COMMENT CATEGORIZATION 🎯
+    context.log('🎯 Categorizing comments intelligently...');
+    const categorizer = new CommentCategorizer();
+    const categorizedComments = categorizer.categorizeComments(allPrioritizedComments);
+    context.log(`📋 Categorized ${categorizedComments.summary.totalComments} comments into smart categories`);
+
+    // 3. SMART DIFF ANALYSIS 🔍
+    context.log('🔬 Running smart diff analysis...');
+    const diffAnalyzer = new DiffAnalyzer();
+    const diffAnalysisResults = [];
+    
+    for (const change of prChanges.changeEntries || []) {
+        if (!change.item?.path || change.item?.isFolder) continue;
+        
+        try {
+            // Get actual diff content for each file
+            const diffContent = await getDiffContent(gitApi, repo.id, targetPR, change.item.path, config.PROJECT);
+            if (diffContent) {
+                const diffAnalysis = diffAnalyzer.analyzeDiff(diffContent, change.item.path);
+                diffAnalysisResults.push(diffAnalysis);
+                context.log(`🔍 Analyzed diff for ${change.item.path}: ${diffAnalysis.riskLevel} risk, ${diffAnalysis.insights.length} insights`);
+            }
+        } catch (diffError) {
+            context.log(`Warning: Could not analyze diff for ${change.item.path}:`, diffError.message);
+        }
+    }
+
+    // 4. GENERATE COMPREHENSIVE REPORTS 📈
+    const riskReport = riskAnalyzer.generateRiskReport(prRiskData, config.PR_ID);
+    const categoryReport = categorizer.generateCategoryReport(categorizedComments);
+    const diffReport = diffAnalyzer.generateDiffReport(diffAnalysisResults);
+
+    // 5. POST SUPER-SMART SUMMARY COMMENT 🎯
+    const superSmartSummary = `
+# 🤖 AI PR Review - Super Intelligence Mode
+
+${riskReport}
+
+${categoryReport}
+
+${diffReport}
+
+## 🎯 AI Recommendations Summary
+- **Total Issues Analyzed**: ${allComments.length}
+- **High Priority Issues**: ${allPrioritizedComments.length}  
+- **Risk Assessment**: ${prRiskData.level} (${prRiskData.overall}/100)
+- **Critical Categories**: ${categorizedComments.summary.criticalCount} critical, ${categorizedComments.summary.highCount} high priority
+
+${prRiskData.recommendations.length > 0 ? `
+### 💡 Key Recommendations:
+${prRiskData.recommendations.map(rec => `- ${rec}`).join('\n')}
+` : ''}
+
+---
+*Powered by Advanced AI Analysis Suite - Risk Scoring, Smart Categorization & Diff Intelligence*
+`;
+
+    // Post the super-smart summary as a general PR comment
+    try {
+        await createGeneralPRComment(
+            gitApi,
+            repo.id, 
+            targetPR.pullRequestId,
+            superSmartSummary,
+            config.PROJECT
+        );
+        context.log('🎯 Posted super-smart AI analysis summary to PR');
+    } catch (summaryError) {
+        context.log.error('Failed to post AI summary:', summaryError);
+    }
+
+    // Log analytics data for this PR (with enhanced data)
+    try {
+        await analytics.logPRAnalysis(config.PR_ID, {
+            allComments: allComments,
+            prioritizedComments: allPrioritizedComments,
+            riskAnalysis: prRiskData,
+            categorizedComments: categorizedComments,
+            diffAnalysis: diffAnalysisResults,
+            metadata: {
+                repositoryId: repo.id,
+                repositoryName: config.REPO_NAME,
+                projectName: config.PROJECT,
+                orgName: config.ORG,
+                filesChanged: prChanges.changeEntries ? prChanges.changeEntries.length : 0,
+                idealCommentNumber: config.IDEAL_COMMMENT_NUMBER,
+                timestamp: new Date().toISOString(),
+                prTitle: targetPR.title,
+                prUrl: `https://dev.azure.com/${config.ORG}/${config.PROJECT}/_git/${config.REPO_NAME}/pullrequest/${config.PR_ID}`,
+                superAnalysisEnabled: true
+            }
+        });
+        context.log(`✅ Enhanced analytics logged for PR #${config.PR_ID}. Risk: ${prRiskData.level}, Categories: ${Object.keys(categorizedComments.byCategory).length}`);
+    } catch (analyticsError) {
+        context.log.error('Failed to log analytics:', analyticsError);
+        // Don't fail the entire PR processing if analytics fails
+    }
+
     // Create a new PR with corrections if enabled
     if (corrections.length > 0) {
         if (config.CREATE_NEW_PR) {
@@ -434,6 +579,19 @@ async function processPullRequest(context, config, guidelines) {
     } else {
         context.log("No AI-suggested changes to apply.");        
     }
+    
+    // Return summary with analytics info
+    return {
+        message: "Successfully processed PR with analytics tracking",
+        summary: {
+            prId: config.PR_ID,
+            totalCommentsGenerated: allComments.length,
+            prioritizedCommentsPosted: allPrioritizedComments.length,
+            filesProcessed: prChanges.changeEntries ? prChanges.changeEntries.length : 0,
+            correctionsPossible: corrections.length,
+            analyticsLogged: true
+        }
+    };
 }
  
 /**
@@ -523,6 +681,91 @@ function numberLines(content) {
         .join('\n');
 }
  
+/**
+ * Prioritize and shortlist the most important comments using AI
+ * @param {AIComment[]} allComments - All comments from initial AI analysis
+ * @param {string} guidelines - Review guidelines
+ * @param {Object} model - AI model
+ * @param {Object} context - Azure Function context
+ * @param {number} idealNumber - Ideal number of comments to return
+ * @returns {Promise<AIComment[]>} - Prioritized and shortlisted comments
+ */
+async function prioritizeComments(allComments, guidelines, model, context, idealNumber) {
+    context.log(`Prioritizing ${allComments.length} comments down to ${idealNumber} most important ones`);
+    
+    if (allComments.length <= idealNumber) {
+        context.log('No prioritization needed - comment count is within ideal range');
+        return allComments;
+    }
+    
+    if (allComments.length === 0) {
+        context.log('No comments to prioritize');
+        return [];
+    }
+    
+    try {
+        const prioritizationPrompt = PromptTemplate.fromTemplate(`
+            You are an expert code reviewer tasked with prioritizing code review comments.
+            
+            REVIEW GUIDELINES:
+            {guidelines}
+            
+            ALL COMMENTS FOUND:
+            {allComments}
+            
+            INSTRUCTIONS:
+            1. Analyze all the comments above
+            2. Select the {idealNumber} MOST IMPORTANT comments based on:
+               - Security vulnerabilities (highest priority)
+               - Bugs that could cause runtime errors
+               - Performance issues
+               - Best practice violations that affect maintainability
+               - Code quality issues that impact readability
+            3. Maintain the original line numbers and comment text exactly
+            4. Return ONLY valid JSON format
+            
+            RESPONSE FORMAT (JSON):
+            {{
+                "prioritizedComments": [{{
+                    "lineNumber": <ORIGINAL_LINE_NUMBER>,
+                    "comment": "<ORIGINAL_COMMENT_TEXT>"
+                }}]
+            }}
+        `);
+        
+        const commentsText = allComments.map((c, i) => 
+            `${i + 1}. Line ${c.lineNumber}: ${c.comment}`
+        ).join('\n');
+        
+        const chain = prioritizationPrompt.pipe(model).pipe(new JsonOutputParser());
+        
+        const result = await Promise.race([
+            chain.invoke({
+                guidelines,
+                allComments: commentsText,
+                idealNumber
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Prioritization timeout')), 30000))
+        ]);
+        
+        if (result && result.prioritizedComments && Array.isArray(result.prioritizedComments)) {
+            context.log(`Successfully prioritized to ${result.prioritizedComments.length} comments`);
+            return result.prioritizedComments.map(comment => ({
+                lineNumber: comment.lineNumber,
+                comment: comment.comment
+            }));
+        } else {
+            context.log.warn('Invalid prioritization response format, returning first N comments');
+            return allComments.slice(0, idealNumber);
+        }
+        
+    } catch (error) {
+        context.log.error(`Error in comment prioritization: ${error.message}`);
+        context.log('Falling back to returning first N comments');
+        return allComments.slice(0, idealNumber);
+    }
+}
+
 /**
  * Generate AI comments for a file
  * @param {string} oldContent - Old file content
@@ -867,4 +1110,82 @@ function validateCorrection(original, corrected) {
    
     // More complex validations can be added here
     return true;
+}
+
+/**
+ * Get diff content for a specific file between PR branches
+ * @param {GitApi} gitApi - Azure DevOps Git API
+ * @param {string} repoId - Repository ID
+ * @param {Object} targetPR - PR object
+ * @param {string} filePath - File path
+ * @param {string} project - Project name
+ * @returns {Promise<string|null>} - Diff content or null if error
+ */
+async function getDiffContent(gitApi, repoId, targetPR, filePath, project) {
+    try {
+        // Get commits for the PR to create diff
+        const commits = await gitApi.getPullRequestCommits(repoId, targetPR.pullRequestId, project);
+        if (commits.length === 0) return null;
+
+        // Get the latest commit
+        const latestCommit = commits[commits.length - 1];
+        
+        // Get file contents from both branches
+        const [sourceContent, targetContent] = await Promise.all([
+            getFileContent(gitApi, repoId, filePath, targetPR.sourceRefName, project),
+            getFileContent(gitApi, repoId, filePath, targetPR.targetRefName, project)
+        ]);
+
+        // Create simple diff format
+        const sourceLines = (sourceContent || '').split('\n');
+        const targetLines = (targetContent || '').split('\n');
+        
+        let diffContent = '';
+        const maxLines = Math.max(sourceLines.length, targetLines.length);
+        
+        for (let i = 0; i < maxLines; i++) {
+            const sourceLine = sourceLines[i] || '';
+            const targetLine = targetLines[i] || '';
+            
+            if (sourceLine !== targetLine) {
+                if (targetLines[i] !== undefined) {
+                    diffContent += `-${sourceLine}\n`;
+                }
+                if (sourceLines[i] !== undefined) {
+                    diffContent += `+${targetLine}\n`;
+                }
+            }
+        }
+
+        return diffContent || null;
+    } catch (error) {
+        console.log(`Warning: Could not get diff for ${filePath}:`, error.message);
+        return null;
+    }
+}
+
+/**
+ * Create a general PR comment (not attached to specific lines)
+ * @param {GitApi} gitApi - Azure DevOps Git API
+ * @param {string} repoId - Repository ID
+ * @param {number} prId - Pull Request ID
+ * @param {string} commentText - Comment text
+ * @param {string} project - Project name
+ */
+async function createGeneralPRComment(gitApi, repoId, prId, commentText, project) {
+    try {
+        const thread = {
+            comments: [{
+                content: commentText,
+                commentType: 1 // Text comment
+            }],
+            status: 1 // Active
+        };
+
+        await gitApi.createThread(thread, repoId, prId, project);
+        console.log(`Posted general PR comment to PR #${prId}`);
+    } catch (error) {
+        console.error(`Failed to create general PR comment: ${error.message}`);
+        throw error;
+    }
 }
