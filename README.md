@@ -136,6 +136,7 @@ In the Azure Portal, navigate to your Function App > Settings > Environment vari
 | INSTRUCTION_SOURCE | Path or URL to review guidelines file |
 | CREATE_NEW_PR | Set to "true" to create new PRs with AI suggestions |
 | **MODEL_TYPE** | **AI model to use: "azure", "openai", "gemini", "deepseek", "anthropic", or "groq"** |
+| **IDEAL_COMMENT_NUMBER** | **Target number of comments to prioritize and post per PR (default: 5)** |
 | GEMINI_API_KEY | Google Gemini API key (required if MODEL_TYPE is "gemini") |
 | OPENAI_API_KEY | OpenAI API key (required if MODEL_TYPE is "openai") |
 | AZURE_OPENAI_API_KEY | Azure OpenAI API key (required if MODEL_TYPE is "azure") |

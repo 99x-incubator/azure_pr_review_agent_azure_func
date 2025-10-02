@@ -129,6 +129,7 @@ module.exports = async function (context, req) {
             GROQ_API_KEY: process.env.GROQ_API_KEY,
             INSTRUCTION_SOURCE: process.env.INSTRUCTION_SOURCE,
             MODEL_TYPE: process.env.MODEL_TYPE,
+            IDEAL_COMMENT_NUMBER: parseInt(process.env.IDEAL_COMMENT_NUMBER) || 5,
             CREATE_NEW_PR: process.env.CREATE_NEW_PR ?
                 process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false
         };
@@ -366,7 +367,8 @@ async function processPullRequest(context, config, guidelines) {
     );
  
     // 5. Process each changed file
-    // Use Promise.all to process all files in parallel but wait for all to complete
+    // Collect all comments first, then prioritize them
+    const allComments = [];
     const fileProcessingPromises = [];
    
     for (const change of prChanges.changeEntries || []) {
@@ -383,21 +385,15 @@ async function processPullRequest(context, config, guidelines) {
  
             // Generate AI comments
             context.log(`Generating comments for ${itemPath}`);
-            const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model,context);
+            const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model, config, context);
             context.log(`Generated ${analysis.comments.length} comments for ${itemPath}`);
            
-            // Post comments to Azure DevOps
-            for (const comment of analysis.comments) {
-                await createCommentThread(
-                    gitApi,
-                    repo.id,
-                    targetPR.pullRequestId,
-                    comment.comment,
-                    itemPath,
-                    comment.lineNumber,
-                    config.PROJECT
-                );
-            }
+            // Add file path to comments and collect them
+            const commentsWithPath = analysis.comments.map(comment => ({
+                ...comment,
+                filePath: itemPath
+            }));
+            allComments.push(...commentsWithPath);
  
             // Update the correction collection
             if (analysis.newContent !== newContent && validateCorrection(newContent, analysis.newContent)) {
@@ -414,6 +410,24 @@ async function processPullRequest(context, config, guidelines) {
    
     // Wait for all file processing to complete
     await Promise.all(fileProcessingPromises);
+
+    // Prioritize comments using AI
+    context.log(`Total comments collected: ${allComments.length}`);
+    const prioritizedComments = await prioritizeComments(allComments, config, model, guidelines, context);
+    context.log(`Prioritized to ${prioritizedComments.length} comments`);
+
+    // Post prioritized comments to Azure DevOps
+    for (const comment of prioritizedComments) {
+        await createCommentThread(
+            gitApi,
+            repo.id,
+            targetPR.pullRequestId,
+            comment.comment,
+            comment.filePath,
+            comment.lineNumber,
+            config.PROJECT
+        );
+    }
  
     // Create a new PR with corrections if enabled
     if (corrections.length > 0) {
@@ -533,7 +547,7 @@ function numberLines(content) {
  * @returns {Promise<AICommentResult>} - AI comments and suggested content
  */
  
-async function generateComments(oldContent, newContent, filePath, guidelines, model,context) {
+async function generateComments(oldContent, newContent, filePath, guidelines, model, config, context) {
     context.log(`Generating comments for file: ${filePath}`);
     context.log(`Model type: ${model?.constructor?.name || 'unknown'}`);
     context.log(`Model properties: ${JSON.stringify(Object.keys(model || {}))}`);
@@ -542,6 +556,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
     const isDeepSeekModel = model && model.modelType === 'deepseek';
    
     context.log(`Is DeepSeek model: ${isDeepSeekModel}`);
+    context.log(`Ideal comment number: ${config.IDEAL_COMMENT_NUMBER}`);
    
     if (oldContent === newContent) {
         context.log(`WARNING: Contents are identical for ${filePath}, skipping analysis`);
@@ -583,6 +598,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 6. If no changes are needed, add a comment indicating no changes are required
                 7. DO NOT include any thinking process or analysis in your response
                 8. ONLY provide the JSON response as specified below
+                9. Focus on the most critical issues - aim for around ${config.IDEAL_COMMENT_NUMBER} comments per file (but prioritize quality over quantity)
  
                 RESPONSE FORMAT (JSON):
                 {
@@ -679,6 +695,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 5. Maintain original code structure where possible
                 6. If no changes are needed, add a comment indicating no changes are required
                 7. Respond ONLY with valid JSON. Do NOT include any markdown formatting or code blocks
+                8. Focus on the most critical issues - aim for around {idealCommentNumber} comments per file (but prioritize quality over quantity)
  
                 RESPONSE FORMAT (JSON):
                 {{
@@ -705,7 +722,8 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
                 chain.invoke({
                     guidelines,
                     numberedOld,
-                    numberedNew
+                    numberedNew,
+                    idealCommentNumber: config.IDEAL_COMMENT_NUMBER
                 }),
                 timeoutPromise
             ]);            
@@ -753,6 +771,170 @@ function processResult(result, newLines) {
             ),
         newContent: result.newContent
     };
+}
+
+/**
+ * Prioritize and shortlist comments using AI
+ * @param {Array} allComments - All comments from all files with file paths
+ * @param {Object} config - Configuration object
+ * @param {Object} model - AI model
+ * @param {string} guidelines - Review guidelines
+ * @param {Object} context - Azure Function context
+ * @returns {Promise<Array>} - Prioritized comments
+ */
+async function prioritizeComments(allComments, config, model, guidelines, context) {
+    context.log(`Starting comment prioritization with ${allComments.length} total comments`);
+    
+    if (allComments.length <= config.IDEAL_COMMENT_NUMBER) {
+        context.log('Total comments already within ideal range, no prioritization needed');
+        return allComments;
+    }
+
+    // Check if model has the deepseek type identifier
+    const isDeepSeekModel = model && model.modelType === 'deepseek';
+    
+    // Prepare comments for AI analysis
+    const commentsText = allComments.map((comment, index) => 
+        `${index + 1}. File: ${comment.filePath}, Line: ${comment.lineNumber}\n   Comment: ${comment.comment}`
+    ).join('\n\n');
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Comment prioritization timed out after 120 seconds')), 120000);
+    });
+
+    try {
+        if (isDeepSeekModel) {
+            context.log(`[DeepSeek] Starting comment prioritization`);
+            
+            const messages = [{
+                role: "system",
+                content: `You are a senior code reviewer tasked with prioritizing code review comments. Focus on the most critical issues that impact security, performance, maintainability, and code quality.`
+            }, {
+                role: "user",
+                content: `PRIORITIZE THESE CODE REVIEW COMMENTS:
+
+Review Guidelines:
+${guidelines}
+
+All Comments:
+${commentsText}
+
+INSTRUCTIONS:
+1. Select the ${config.IDEAL_COMMENT_NUMBER} most important and relevant comments
+2. Prioritize based on: Security issues > Performance problems > Maintainability > Code style
+3. Ensure selected comments cover different aspects of code quality
+4. Return the comment numbers (1-based index) from the list above
+5. DO NOT include any thinking process or analysis in your response
+6. ONLY provide the JSON response as specified below
+
+RESPONSE FORMAT (JSON):
+{
+    "selectedComments": [1, 3, 5, 7, 9],
+    "reasoning": "Brief explanation of selection criteria"
+}
+
+Example:
+{
+    "selectedComments": [2, 4, 6],
+    "reasoning": "Selected security vulnerability, performance issue, and maintainability concern"
+}`
+            }];
+
+            const response = await Promise.race([
+                model.path("/chat/completions").post({
+                    body: {
+                        messages,
+                        max_tokens: 4096,
+                        temperature: 0.3,
+                        model: "DeepSeek-R1",
+                        response_format: { type: "json_object" }
+                    }
+                }),
+                timeoutPromise
+            ]);
+
+            const resultText = response.body.choices[0].message.content;
+            context.log(`[DeepSeek] Prioritization response: ${resultText}`);
+
+            // Extract JSON from the response
+            let jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+            if (!jsonMatch) {
+                jsonMatch = resultText.match(/\{[\s\S]*\}/);
+            }
+
+            if (!jsonMatch) {
+                context.log.error(`[DeepSeek] No JSON found in prioritization response`);
+                return allComments.slice(0, config.IDEAL_COMMENT_NUMBER);
+            }
+
+            try {
+                const result = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+                const selectedIndices = result.selectedComments || [];
+                
+                context.log(`[DeepSeek] Selected ${selectedIndices.length} comments: ${selectedIndices.join(', ')}`);
+                context.log(`[DeepSeek] Reasoning: ${result.reasoning}`);
+
+                // Return selected comments (convert 1-based to 0-based index)
+                const prioritizedComments = selectedIndices
+                    .filter(index => index >= 1 && index <= allComments.length)
+                    .map(index => allComments[index - 1]);
+
+                return prioritizedComments;
+            } catch (parseError) {
+                context.log.error(`[DeepSeek] JSON parse error in prioritization: ${parseError.message}`);
+                return allComments.slice(0, config.IDEAL_COMMENT_NUMBER);
+            }
+        } else {
+            // For other AI models using LangChain
+            const promptTemplate = PromptTemplate.fromTemplate(`
+                You are a senior code reviewer tasked with prioritizing code review comments.
+                
+                Review Guidelines:
+                {guidelines}
+                
+                All Comments:
+                {commentsText}
+                
+                INSTRUCTIONS:
+                1. Select the {idealNumber} most important and relevant comments
+                2. Prioritize based on: Security issues > Performance problems > Maintainability > Code style
+                3. Ensure selected comments cover different aspects of code quality
+                4. Return the comment numbers (1-based index) from the list above
+                5. Respond ONLY with valid JSON
+                
+                RESPONSE FORMAT (JSON):
+                {{
+                    "selectedComments": [1, 3, 5, 7, 9],
+                    "reasoning": "Brief explanation of selection criteria"
+                }}
+            `);
+
+            const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());
+            const result = await Promise.race([
+                chain.invoke({
+                    guidelines,
+                    commentsText,
+                    idealNumber: config.IDEAL_COMMENT_NUMBER
+                }),
+                timeoutPromise
+            ]);
+
+            const selectedIndices = result.selectedComments || [];
+            context.log(`Selected ${selectedIndices.length} comments: ${selectedIndices.join(', ')}`);
+            context.log(`Reasoning: ${result.reasoning}`);
+
+            // Return selected comments (convert 1-based to 0-based index)
+            const prioritizedComments = selectedIndices
+                .filter(index => index >= 1 && index <= allComments.length)
+                .map(index => allComments[index - 1]);
+
+            return prioritizedComments;
+        }
+    } catch (error) {
+        context.log.error(`Comment prioritization failed: ${error.message}`);
+        // Fallback: return first N comments
+        return allComments.slice(0, config.IDEAL_COMMENT_NUMBER);
+    }
 }
  
  
