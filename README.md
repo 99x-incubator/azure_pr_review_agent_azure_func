@@ -31,6 +31,12 @@ Automatically review pull requests in Azure DevOps using AI-powered code analysi
 - 📝 Customizable review guidelines
 - 🔀 Support for multiple files in a single PR
 - 🤖 Configurable AI model selection via environment variables
+- 🎯 **Two-Stage AI Commenting**: Generate all possible comments, then prioritize the most critical ones
+- 📊 **Advanced Analytics**: Comprehensive PR analysis logging with risk assessment and insights
+- 🏷️ **Smart Categorization**: Intelligent comment categorization (security, performance, maintainability, etc.)
+- 📈 **Risk Analysis**: Automated PR risk scoring with actionable recommendations
+- 🔍 **Diff Intelligence**: Smart diff analysis with complexity scoring and critical file detection
+- 📋 **Summary Reports**: Super-smart summary comments with categorized insights and recommendations
 
 ## 📋 Prerequisites
 
@@ -135,6 +141,7 @@ In the Azure Portal, navigate to your Function App > Settings > Environment vari
 | AZURE_REPO | Default repository name (optional if provided in webhook) |
 | INSTRUCTION_SOURCE | Path or URL to review guidelines file |
 | CREATE_NEW_PR | Set to "true" to create new PRs with AI suggestions |
+| IDEAL_COMMENT_NUMBER | Maximum number of prioritized comments to post per PR (default: 5) |
 | **MODEL_TYPE** | **AI model to use: "azure", "openai", "gemini", "deepseek", "anthropic", or "groq"** |
 | GEMINI_API_KEY | Google Gemini API key (required if MODEL_TYPE is "gemini") |
 | OPENAI_API_KEY | OpenAI API key (required if MODEL_TYPE is "openai") |
@@ -186,6 +193,53 @@ You can configure multiple API keys in your environment variables and switch bet
 - 💰 Optimize for cost by selecting the most economical option
 - 🚀 Choose the model that performs best for your specific codebase
 - 🔒 Have fallback options if one service is unavailable
+
+## 🎯 Advanced Features
+
+### Two-Stage AI Commenting & Prioritization
+The agent now uses a sophisticated two-stage process:
+1. **Stage 1**: Generate comprehensive comments for all changed files
+2. **Stage 2**: Use AI to prioritize and select the most critical comments (configurable limit, default 5)
+
+This ensures that only the most important feedback is posted, focusing on security issues, bugs, and best practices.
+
+### Analytics & Reporting
+Every PR review generates detailed analytics stored as JSON files in the `analytics/` directory:
+- Complete comment history (all generated vs. prioritized)
+- Risk assessment scores and indicators
+- Comment categorization breakdown
+- Diff analysis insights
+- Processing metadata
+
+Access analytics files to track quality trends and improve your review process.
+
+### Smart Risk Analysis
+Automated PR risk scoring considers:
+- Security vulnerabilities
+- Performance concerns
+- Code maintainability issues
+- Testing gaps
+- Critical file modifications
+
+Each PR receives a risk level (Low/Medium/High) with specific recommendations.
+
+### Intelligent Comment Categorization
+Comments are automatically categorized into:
+- 🔒 Security
+- ⚡ Performance
+- 🔧 Maintainability
+- 🐛 Functionality
+- 🧪 Testing
+- 📚 Documentation
+- 🎨 Style
+
+### Comprehensive Summary Reports
+Each PR gets a detailed summary comment including:
+- Risk assessment with actionable recommendations
+- Comment categorization counts
+- Diff analysis with complexity scoring
+- File change insights
+- Critical file notifications
 
 **Below shown is a AI Models Comparison Table as of April 2025**
 <img src="https://github.com/99x-incubator/azure_pr_review_agent_azure_func/blob/main/Assets/ModelComparison.png" alt="Image 7" width="1100px" />

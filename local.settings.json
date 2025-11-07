@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "INSTRUCTION_SOURCE": "Guidelines/logging-and-observability-guidelines.md",
+    "AZURE_PAT": "dummy",
+    "MODEL_TYPE": "gemini",
+    "GEMINI_API_KEY": "AIzaSyBOeJY8TiOjANmkYKAq6j1N8rb8ktSwpY0"
+  },
+  "ConnectionStrings": {}
+}

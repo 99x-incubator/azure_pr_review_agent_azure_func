@@ -17,6 +17,12 @@ const { CheerioWebBaseLoader } = require('@langchain/community/document_loaders/
 const fs = require('fs').promises;
 const path = require('path');
 require('dotenv/config');
+
+// Import new modules
+const AIDecisionAnalytics = require('../lib/AIDecisionAnalytics');
+const PRRiskAnalyzer = require('../lib/PRRiskAnalyzer');
+const CommentCategorizer = require('../lib/CommentCategorizer');
+const DiffAnalyzer = require('../lib/DiffAnalyzer');
  
 // Interfaces for AI comments and file corrections
 /**
@@ -130,7 +136,8 @@ module.exports = async function (context, req) {
             INSTRUCTION_SOURCE: process.env.INSTRUCTION_SOURCE,
             MODEL_TYPE: process.env.MODEL_TYPE,
             CREATE_NEW_PR: process.env.CREATE_NEW_PR ?
-                process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false
+                process.env.CREATE_NEW_PR.toLowerCase() === 'true' : false,
+            IDEAL_COMMENT_NUMBER: parseInt(process.env.IDEAL_COMMENT_NUMBER) || 5
         };
  
  
@@ -318,7 +325,13 @@ async function processPullRequest(context, config, guidelines) {
     // Initialize AI model
     const model = initializeAIModel(config,context);
     const corrections = [];
- 
+
+    // Initialize analytics modules
+    const analytics = new AIDecisionAnalytics();
+    const riskAnalyzer = new PRRiskAnalyzer();
+    const commentCategorizer = new CommentCategorizer();
+    const diffAnalyzer = new DiffAnalyzer();
+
     if (!model) {
         throw new Error("Failed to initialize AI model. Check API key configuration.");
     }
@@ -327,12 +340,12 @@ async function processPullRequest(context, config, guidelines) {
     const authHandler = azdev.getPersonalAccessTokenHandler(config.PAT);
     const connection = new azdev.WebApi(`https://dev.azure.com/${config.ORG}`, authHandler);
     const gitApi = await connection.getGitApi();
- 
+
     // 2. Get target repository
     const repos = await gitApi.getRepositories(config.PROJECT);
     const repo = repos.find(r => r.name === config.REPO_NAME);
     if (!repo?.id) throw new Error("Repository not found");
- 
+
     // 3. Get target pull request
     const targetPR = await gitApi.getPullRequest(repo.id, config.PR_ID, config.PROJECT);
    
@@ -341,18 +354,18 @@ async function processPullRequest(context, config, guidelines) {
         context.log("Skipping draft pull request");
         return { message: "Skipped draft pull request" };
     }
- 
+
     if (!targetPR?.pullRequestId || !targetPR.sourceRefName || !targetPR.targetRefName) {
         throw new Error("PR not found or missing ref names");
     }
- 
+
     //Check if AI comments already exist for this PR
     const hasComments = await hasExistingAIComments(gitApi, repo.id, targetPR.pullRequestId, config.PROJECT);
     if (hasComments) {
         context.log("AI comments already exist for this PR, skipping");
         return { message: "AI comments already exist for this PR, skipping" };
     }
- 
+
     // 4. Get PR changes using iterations
     const iterations = await gitApi.getPullRequestIterations(repo.id, targetPR.pullRequestId, config.PROJECT);
     const latestIterationId = iterations[iterations.length - 1]?.id;
@@ -364,15 +377,18 @@ async function processPullRequest(context, config, guidelines) {
         latestIterationId,
         config.PROJECT
     );
- 
-    // 5. Process each changed file
-    // Use Promise.all to process all files in parallel but wait for all to complete
+
+    // 5. Analyze diff for insights
+    const diffInsights = diffAnalyzer.analyzeDiff(prChanges.changeEntries || [], targetPR);
+
+    // 6. Process each changed file and collect all comments (Stage 1)
+    const allComments = [];
     const fileProcessingPromises = [];
    
     for (const change of prChanges.changeEntries || []) {
         const itemPath = change.item?.path;
         if (!itemPath || change.item?.isFolder) continue;
- 
+
         // Create a promise for processing this file
         const filePromise = (async () => {
             // Get file content from both branches
@@ -380,25 +396,20 @@ async function processPullRequest(context, config, guidelines) {
                 getFileContent(gitApi, repo.id, itemPath, targetPR.targetRefName, config.PROJECT),
                 getFileContent(gitApi, repo.id, itemPath, targetPR.sourceRefName, config.PROJECT)
             ]);
- 
+
             // Generate AI comments
             context.log(`Generating comments for ${itemPath}`);
             const analysis = await generateComments(oldContent, newContent, itemPath, guidelines, model,context);
             context.log(`Generated ${analysis.comments.length} comments for ${itemPath}`);
            
-            // Post comments to Azure DevOps
+            // Collect all comments with file context
             for (const comment of analysis.comments) {
-                await createCommentThread(
-                    gitApi,
-                    repo.id,
-                    targetPR.pullRequestId,
-                    comment.comment,
-                    itemPath,
-                    comment.lineNumber,
-                    config.PROJECT
-                );
+                allComments.push({
+                    ...comment,
+                    filePath: itemPath
+                });
             }
- 
+
             // Update the correction collection
             if (analysis.newContent !== newContent && validateCorrection(newContent, analysis.newContent)) {
                 corrections.push({
@@ -414,7 +425,35 @@ async function processPullRequest(context, config, guidelines) {
    
     // Wait for all file processing to complete
     await Promise.all(fileProcessingPromises);
- 
+
+    // 7. Prioritize comments (Stage 2)
+    const prioritizedComments = await prioritizeComments(allComments, config.IDEAL_COMMENT_NUMBER, model, context);
+
+    // 8. Post prioritized comments to Azure DevOps
+    for (const comment of prioritizedComments) {
+        await createCommentThread(
+            gitApi,
+            repo.id,
+            targetPR.pullRequestId,
+            comment.comment,
+            comment.filePath,
+            comment.lineNumber,
+            config.PROJECT
+        );
+    }
+
+    // 9. Analyze risk and categorize comments
+    const riskAnalysis = await riskAnalyzer.analyzePRRisk(targetPR, allComments, diffInsights, model);
+    const categorization = commentCategorizer.categorizeComments(allComments);
+
+    // 10. Post summary comment
+    await postSummaryComment(gitApi, repo.id, targetPR.pullRequestId, config.PROJECT,
+                           prioritizedComments, riskAnalysis, categorization, diffInsights);
+
+    // 11. Log analytics
+    await analytics.logPRAnalytics(targetPR, allComments, prioritizedComments,
+                                 riskAnalysis, categorization, diffInsights, config);
+
     // Create a new PR with corrections if enabled
     if (corrections.length > 0) {
         if (config.CREATE_NEW_PR) {
@@ -435,8 +474,114 @@ async function processPullRequest(context, config, guidelines) {
         context.log("No AI-suggested changes to apply.");        
     }
 }
- 
+
 /**
+ * Post a comprehensive summary comment to the PR
+ * @param {Object} gitApi - Git API client
+ * @param {string} repoId - Repository ID
+ * @param {number} prId - PR ID
+ * @param {string} project - Project name
+ * @param {Array} prioritizedComments - Prioritized comments
+ * @param {Object} riskAnalysis - Risk analysis
+ * @param {Object} categorization - Comment categorization
+ * @param {Object} diffInsights - Diff insights
+ */
+async function postSummaryComment(gitApi, repoId, prId, project, prioritizedComments, riskAnalysis, categorization, diffInsights) {
+    const summaryComment = buildSummaryComment(prioritizedComments, riskAnalysis, categorization, diffInsights);
+
+    // Create a summary thread (not attached to specific line)
+    const thread = {
+        comments: [{
+            content: summaryComment,
+            parentCommentId: 0,
+            commentType: GitInterfaces.CommentType.Text,
+        }],
+        status: GitInterfaces.CommentThreadStatus.Active,
+        threadContext: {
+            filePath: null, // Summary comment not tied to a specific file
+        }
+    };
+
+    await gitApi.createThread(thread, repoId, prId, project);
+    console.log('Posted AI review summary comment to PR');
+}
+
+/**
+ * Build the summary comment content
+ * @param {Array} prioritizedComments - Prioritized comments
+ * @param {Object} riskAnalysis - Risk analysis
+ * @param {Object} categorization - Comment categorization
+ * @param {Object} diffInsights - Diff insights
+ * @returns {string} - Formatted summary comment
+ */
+function buildSummaryComment(prioritizedComments, riskAnalysis, categorization, diffInsights) {
+    const riskEmoji = {
+        low: '🟢',
+        medium: '🟡',
+        high: '🔴'
+    };
+
+    let comment = `# 🤖 AI Code Review Summary\n\n`;
+
+    // Risk Assessment
+    comment += `## 📊 Risk Assessment\n`;
+    comment += `${riskEmoji[riskAnalysis.level]} **${riskAnalysis.level.toUpperCase()} RISK** (Score: ${riskAnalysis.totalScore.toFixed(1)}/10)\n\n`;
+
+    if (riskAnalysis.recommendations.length > 0) {
+        comment += `**Recommendations:**\n`;
+        riskAnalysis.recommendations.forEach(rec => {
+            comment += `• ${rec}\n`;
+        });
+        comment += `\n`;
+    }
+
+    // Comment Summary
+    comment += `## 💬 Review Comments\n`;
+    comment += `**Total Comments Generated:** ${categorization.totalComments}\n`;
+    comment += `**Prioritized Comments Posted:** ${prioritizedComments.length}\n\n`;
+
+    // Category breakdown
+    const categories = Object.entries(categorization.summary)
+        .filter(([, count]) => count > 0)
+        .sort(([, a], [, b]) => b - a);
+
+    if (categories.length > 0) {
+        comment += `**Comment Categories:**\n`;
+        categories.forEach(([category, count]) => {
+            const emoji = getCategoryEmoji(category);
+            comment += `${emoji} ${category.charAt(0).toUpperCase() + category.slice(1)}: ${count}\n`;
+        });
+        comment += `\n`;
+    }
+
+    // Diff Insights
+    comment += `## 📈 Change Analysis\n`;
+    comment += `${diffInsights.summary}\n\n`;
+
+    // Footer
+    comment += `---\n*Generated by AI PR Review Agent | Analysis completed on ${new Date().toLocaleString()}*`;
+
+    return comment;
+}
+
+/**
+ * Get emoji for comment category
+ * @param {string} category - Category name
+ * @returns {string} - Emoji
+ */
+function getCategoryEmoji(category) {
+    const emojis = {
+        security: '🔒',
+        performance: '⚡',
+        maintainability: '🔧',
+        functionality: '🐛',
+        testing: '🧪',
+        documentation: '📚',
+        style: '🎨',
+        other: '📝'
+    };
+    return emojis[category] || '📝';
+}/**
  * Load review guidelines from a file or URL
  * @param {string} source - Source path or URL
  * @returns {Promise<string>} - Guidelines content
@@ -735,7 +880,7 @@ async function generateComments(oldContent, newContent, filePath, guidelines, mo
             error: errorMessage};
     }
 }
- 
+
 // Shared result processor
 function processResult(result, newLines) {
     return {
@@ -754,8 +899,116 @@ function processResult(result, newLines) {
         newContent: result.newContent
     };
 }
- 
- 
+
+/**
+ * Prioritize and select top-N most critical comments
+ * @param {Array} allComments - All generated comments
+ * @param {number} limit - Maximum number of comments to select
+ * @param {Object} model - AI model
+ * @param {Object} context - Azure Function context
+ * @returns {Promise<Array>} - Prioritized comments
+ */
+async function prioritizeComments(allComments, limit, model, context) {
+    if (allComments.length <= limit) {
+        return allComments;
+    }
+
+    context.log(`Prioritizing ${allComments.length} comments to top ${limit}`);
+
+    // Check if model has the deepseek type identifier
+    const isDeepSeekModel = model && model.modelType === 'deepseek';
+
+    const commentsText = allComments.map((comment, index) =>
+        `${index + 1}. Line ${comment.lineNumber}: ${comment.comment}`
+    ).join('\n');
+
+    const prioritizationPrompt = `
+You are a senior code reviewer tasked with selecting the most critical comments from a list.
+
+Given the following ${allComments.length} comments from a code review:
+
+${commentsText}
+
+INSTRUCTIONS:
+1. Select the top ${limit} most critical comments based on:
+   - Security vulnerabilities (highest priority)
+   - Performance issues
+   - Logic errors or bugs
+   - Code maintainability problems
+   - Best practice violations
+
+2. Focus on comments that would prevent merging or require immediate attention.
+
+3. Return ONLY a JSON array of the selected comment indices (1-based) in priority order.
+
+RESPONSE FORMAT:
+[1, 3, 5, ...]  // Array of indices of the most critical comments
+`;
+
+    try {
+        let selectedIndices = [];
+
+        if (isDeepSeekModel) {
+            const messages = [{
+                role: "system",
+                content: "You are a senior code reviewer. Analyze and prioritize comments based on their criticality."
+            }, {
+                role: "user",
+                content: prioritizationPrompt
+            }];
+
+            const response = await model.path("/chat/completions").post({
+                body: {
+                    messages,
+                    max_tokens: 1000,
+                    temperature: 0.1,
+                    model: "DeepSeek-R1",
+                    response_format: { type: "json_object" }
+                }
+            });
+
+            const resultText = response.body.choices[0].message.content;
+            let jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+            if (!jsonMatch) {
+                jsonMatch = resultText.match(/\{[\s\S]*\}/);
+            }
+
+            if (jsonMatch) {
+                let jsonStr = jsonMatch[1].replace(/<think>[\s\S]*?<\/think>/g, '');
+                const result = JSON.parse(jsonStr);
+                selectedIndices = Array.isArray(result) ? result : result.indices || [];
+            }
+        } else {
+            const promptTemplate = PromptTemplate.fromTemplate(`
+{prioritizationPrompt}
+
+Return ONLY a JSON array of indices.
+`);
+            const chain = promptTemplate.pipe(model).pipe(new JsonOutputParser());
+            selectedIndices = await chain.invoke({ prioritizationPrompt });
+        }
+
+        // Validate and filter indices
+        const validIndices = selectedIndices
+            .filter(index => typeof index === 'number' && index >= 1 && index <= allComments.length)
+            .slice(0, limit);
+
+        // If AI selection fails, fall back to first N comments
+        if (validIndices.length === 0) {
+            context.log('AI prioritization failed, falling back to first N comments');
+            return allComments.slice(0, limit);
+        }
+
+        const prioritizedComments = validIndices.map(index => allComments[index - 1]);
+        context.log(`Selected ${prioritizedComments.length} prioritized comments`);
+        return prioritizedComments;
+
+    } catch (error) {
+        context.log.error('Error in comment prioritization:', error);
+        // Fall back to first N comments
+        return allComments.slice(0, limit);
+    }
+} 
 /**
  * Create a comment thread on a PR
  * @param {Object} gitApi - Git API client
