@@ -1,3 +1,5 @@
+![Project Screenshot](https://drive.google.com/uc?export=view&id=1ejF5DO89VKfWsHZPx5CfCb6l1MnHMVt1)
+
 # Azure Function for PR Review with AI Suggestions 🤖
 
 Automatically review pull requests in Azure DevOps using AI-powered code analysis. This Azure Function integrates with Azure DevOps to provide intelligent code reviews, adding comments directly to your PRs and optionally creating improvement PRs with suggested fixes.
